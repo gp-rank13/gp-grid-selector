@@ -1,51 +1,129 @@
+// Grid extension for Gig Performer by @rank13
+
 #include "LibMain.h"
 
-namespace gigperformer
-{
-namespace sdk
-{
-
-GigPerformerAPI *CreateGPExtension(LibraryHandle handle)
-{
-    return new LibMain(handle);
-}
-
-} // namespace sdk
+namespace gigperformer {
+   namespace sdk {
+      GigPerformerAPI *CreateGPExtension(LibraryHandle handle) {
+         return new LibMain(handle);
+      }
+   } // namespace sdk
 } // namespace gigperformer
 
-// List of menu items
-std::vector<std::string> menuNames = {"Show Window", "Hide Window"};
+// *** Global Variables *** 
+bool isGigFileLoading = false;
+bool isSetlistMode = false;
+int directSelectCount = 4;
+std::string Grid_Text = "GP Grid";
+int Grid_Duration = -1;
+int Grid_Font_Size = 80;
 
-int LibMain::GetMenuCount()
-{
-    return static_cast<int>(menuNames.size());
-}
-
-std::string LibMain::GetMenuName(int index)
-{
-    std::string text;
-    if (index >= 0 && static_cast<std::size_t>(index) < menuNames.size())
-    {
-        text = menuNames[index];
-    }
-
-    return text;
-}
-
-void LibMain::InvokeMenu(int index)
-{
-    if (index >= 0 && static_cast<std::size_t>(index) < menuNames.size())
-    {
-        switch (index)
-        {
-        case 0:
-            LogWindow::showWindow();
+void LibMain::OnStatusChanged(GPStatusType status) {
+    switch (status) {
+        case GPStatus_GigStartedLoading:
+            isGigFileLoading = true;
             break;
-        case 1:
-            LogWindow::hideWindow();
+        case GPStatus_GigFinishedLoading:
+            isGigFileLoading = false;
+            setWidgetValue("GPGS_DISPLAY", 0.0);
+            if (inSetlistMode()) {
+               GridWindow::presetChanged(getCurrentSongIndex(), getSongNames());
+            } else {
+               GridWindow::presetChanged(getCurrentRackspaceIndex(), getRackspaceNames()); 
+            }
             break;
         default:
             break;
-        }
     }
+}
+
+void LibMain::OnSongChanged(int, int newIndex) {
+    if (isGigFileLoading) return;
+    if (newIndex >= 0 && inSetlistMode()) {
+        GridWindow::presetChanged(newIndex, getSongNames());
+    }
+}
+
+void LibMain::OnSongPartChanged(int oldIndex, int newIndex) {
+   if (isGigFileLoading) return;
+   if (newIndex >= 0 && oldIndex != newIndex && inSetlistMode()) {
+      GridWindow::sceneChanged(newIndex, getSongPartNames(getCurrentSongIndex()));
+   }
+}
+
+void LibMain::OnSetlistChanged(const std::string&) {
+   if (isGigFileLoading) return;
+   if (inSetlistMode()) {
+      GridWindow::presetChanged(getCurrentSongIndex(), getSongNames());    
+   }
+}
+
+void LibMain::OnRackspaceActivated() {
+    if (isGigFileLoading) return;
+    if (!inSetlistMode()) {
+        GridWindow::presetChanged(getCurrentRackspaceIndex(), getRackspaceNames()); 
+    }
+}
+
+void LibMain::OnModeChanged(int mode) {
+   //isSetlistMode = (mode == GP_SetlistMode) ? true : false;
+   /*
+    if (isGigFileLoading || !isFirstGigFileOpened) 
+        return;
+    if (mode == GP_SetlistMode) 
+        ExtensionWindow::selectSongForCurrentButton();
+   */
+   if (isGigFileLoading) return;
+   if (mode == GP_SetlistMode) {
+      GridWindow::presetChanged(getCurrentSongIndex(), getSongNames());    
+   } else {
+      GridWindow::presetChanged(getCurrentRackspaceIndex(), getRackspaceNames()); 
+   }
+}
+
+void LibMain::OnWidgetValueChanged(const std::string& widgetName, double newValue) {
+    if (isGigFileLoading) return;
+    if (widgetName == "GPGS_DISPLAY") {
+         if (newValue == 1.0) {
+            GridWindow::showGrid();
+         } else {
+            GridWindow::hideGrid();
+         }
+    } else if (widgetName.starts_with("GPGS_DS")) {
+      if (newValue == 1.0) {
+         GridWindow::directSelect((String)widgetName);
+      }
+    }
+}
+
+StringArray LibMain::getSongNames() {
+    StringArray songNames;
+    String songName;
+    int songCount = getSongCount();
+    for (int i = 0; i < songCount; ++i) { 
+        songName = getSongName(i);
+        songNames.add(songName);
+    }
+    return songNames;
+}
+
+StringArray LibMain::getSongPartNames(int songIndex) {
+    StringArray songPartNames;
+    String songPartName;
+    int songPartCount = getSongpartCount(songIndex);
+    for (int i = 0; i < songPartCount; ++i) { 
+        songPartName = getSongpartName(songIndex, i);
+        songPartNames.add(songPartName);
+    }
+    return songPartNames;
+}
+
+StringArray LibMain::getRackspaceNames() {
+    StringArray rackspaceNames;
+    String rackspaceName;
+    for (int i = 0; i < getRackspaceCount(); ++i) { 
+        rackspaceName = getRackspaceName(i);
+        rackspaceNames.add(rackspaceName);
+    }
+    return rackspaceNames;
 }

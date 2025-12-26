@@ -1,101 +1,85 @@
+// Grid extension for Gig Performer by @rank13
+
 #pragma once
 
-#include <cstddef>
-
-#include <gigperformer/sdk/GPMidiMessages.h>
 #include <gigperformer/sdk/GPUtils.h>
 #include <gigperformer/sdk/GigPerformerAPI.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
-#include "LogWindow.h"
+#include "GridWindow.h"
+#include "Version.h"
 
-// define an XML string describing your product
 const std::string XMLProductDescription =
-    // Replace with your information
     "<Library>"
-    "<Product Name=\"Hello GP - JUCE\" Version=\"1.0\" BuildDate=\"12/1/2019\"></Product> "
-    "<Description>Briefly describe your product</Description>"
-    "<ImagePath>/Path/To/ImageFile/foo.jpg</ImagePath>"
+    "<Product Name=\"" + PROJECT_TITLE + "\" Version=\"" + PROJECT_VERSION + "\" BuildDate=\"" + PROJECT_BUILD_DATE + "\"></Product>"
+    "<Description>" + PROJECT_DESCRIPTION + "</Description>"
+    "<ImagePath></ImagePath>"
     "</Library>";
 
-// Define your class here - it MUST be called LibMain and it must inherit from
-// GigPerformerAPI
+// Globals
+extern bool isSetlistMode;
+extern int directSelectCount;
+extern std::string Grid_Text;
+extern int Grid_Font_Size;
+extern int Grid_Duration;
+extern int Grid_Width;
+extern int Grid_Height;
+extern int Grid_Position_X;
+extern int Grid_Position_Y;
+
+// Define your class here - it MUST be called LibMain and it must inherit from GigPerformerAPI
 
 class LibMain : public gigperformer::sdk::GigPerformerAPI
 {
-  protected:
-    // These are for creating menu items in Gig Performer that can be used to trigger external functions provided by the
-    // extension developer
-    int GetMenuCount() override;
-    std::string GetMenuName(int index) override;
-    void InvokeMenu(int itemIndex) override;
-
-  public:
-    // These must be here but no need to do anything unless you want extra
-    // behavior
-    LibMain(LibraryHandle handle) : GigPerformerAPI(handle)
-    {
-    }
-    virtual ~LibMain()
-    {
-    }
-
-    // Now, simply override the callback methods in which you are interested
-    // and, in the Initialization method at the end of this class,
-    // call RegisterCallback for each of these methods
-
+public:
+    // These must be here but no need to do anything unless you want extra behavior
+     LibMain(LibraryHandle handle) : GigPerformerAPI(handle) {}
+    virtual ~LibMain() {}
+        
     void OnOpen() override
     {
-        LogWindow::initialize();
+        GridWindow::initialize();
     }
-
+    
     void OnClose() override
     {
-        LogWindow::finalize();
+        GridWindow::finalize();
     }
 
-    void OnGlobalPlayStateChanged(double playing) override
-    {
-        juce::String log = "Playhead ";
-        log << ((playing > 0.0) ? "playing" : "stopped");
-
-        LogWindow::showWindow();
-        LogWindow::log(log);
-    }
-
-    // A midi device was added or removed
-    void OnMidiDeviceListChanged(std::vector<std::string> &inputs, std::vector<std::string> &outputs) override
-    {
-        LogWindow::showWindow();
-
-        LogWindow::log("MIDI Inputs/Outputs changed");
-        LogWindow::log("===========================");
-        LogWindow::log("INPUTS:");
-        for (std::size_t i = 0; i < inputs.size(); i++)
-            LogWindow::log("\t" + inputs[i]);
-
-        LogWindow::log("\nOUTPUTS:");
-        for (std::size_t i = 0; i < outputs.size(); i++)
-            LogWindow::log("\t" + outputs[i]);
-    }
+    void OnStatusChanged(GPStatusType status) override; 
+    void OnModeChanged(int mode) override;
+    void OnSongChanged(int oldIndex, int newIndex) override;
+    void OnSongPartChanged(int oldIndex, int newIndex) override;
+    void OnSetlistChanged(const std::string &newSetlistName) override;
+    void OnRackspaceActivated() override;
+    void OnWidgetValueChanged(const std::string &widgetName, double newValue) override;  
 
     void Initialization() override
     {
-        // Do any initialization that you need
-
-        // .... your code here
-
-        // Finally, register all the methods that you are going to actually use,
-        // i.e, the ones you declared above as override
+        // Register all the methods that you are going to actually use, i.e, the ones you declared above as override
         registerCallback("OnOpen");
         registerCallback("OnClose");
-        registerCallback("OnGlobalPlayStateChanged");
-        registerCallback("OnMidiDeviceListChanged");
+        registerCallback("OnStatusChanged");
+        registerCallback("OnSongChanged");
+        registerCallback("OnSongPartChanged");
+        registerCallback("OnSetlistChanged");
+        registerCallback("OnRackspaceActivated");
+        registerCallback("OnModeChanged");
+        registerCallback("OnWidgetValueChanged");
+
+        listenForWidget("GPGS_DISPLAY", true);
+
+        for (int i = 1; i <= 20; ++i) {  
+            listenForWidget("GPGS_DS" + std::to_string(i), true);
+        }
     }
 
-    // Generally don't touch this - simply define the constant
-    // 'XMLProductDescription' at the top of this file with an XML description of
-    // your product
+private:
+    StringArray getSongNames();
+    StringArray getSongPartNames(int songIndex);
+    StringArray getRackspaceNames();
+   
+    // An XML description of your product
     std::string GetProductDescription() override // This MUST be defined in your class
     {
         return XMLProductDescription;

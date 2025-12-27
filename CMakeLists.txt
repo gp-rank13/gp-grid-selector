@@ -10,7 +10,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED YES)
 set(CMAKE_CXX_EXTENSIONS NO)
 
 set(PROJECT_NAME "GPGridSelector") 
-set (PROJECT_VERSION "0.1.0")
+set (PROJECT_VERSION "0.9.0")
 set (PROJECT_TITLE "GP Grid Selector")
 set (PROJECT_DESCR "Grid Selector for Songs and Rackspaces")
 string(TIMESTAMP TODAY "%d/%m/%Y")

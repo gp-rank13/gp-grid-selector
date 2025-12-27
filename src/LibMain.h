@@ -18,7 +18,7 @@ const std::string XMLProductDescription =
 
 // Globals
 extern bool isSetlistMode;
-extern int directSelectCount;
+//extern int directSelectCount;
 extern std::string Grid_Text;
 extern int Grid_Font_Size;
 extern int Grid_Duration;
@@ -68,7 +68,8 @@ public:
         registerCallback("OnWidgetValueChanged");
 
         listenForWidget("GPGS_DISPLAY", true);
-
+        listenForWidget("GPGS_BANKUP", true);
+        listenForWidget("GPGS_BANKDOWN", true);
         for (int i = 1; i <= 20; ++i) {  
             listenForWidget("GPGS_DS" + std::to_string(i), true);
         }

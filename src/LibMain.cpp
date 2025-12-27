@@ -13,7 +13,7 @@ namespace gigperformer {
 // *** Global Variables *** 
 bool isGigFileLoading = false;
 bool isSetlistMode = false;
-int directSelectCount = 4;
+//int directSelectCount = 4;
 std::string Grid_Text = "GP Grid";
 int Grid_Duration = -1;
 int Grid_Font_Size = 80;
@@ -89,6 +89,14 @@ void LibMain::OnWidgetValueChanged(const std::string& widgetName, double newValu
          } else {
             GridWindow::hideGrid();
          }
+    } else if (widgetName == "GPGS_BANKUP") {
+      if (newValue == 1.0) {
+         GridWindow::gridBank(false);
+      }
+    } else if (widgetName == "GPGS_BANKDOWN") {
+      if (newValue == 1.0) {
+         GridWindow::gridBank(true);
+      }
     } else if (widgetName.starts_with("GPGS_DS")) {
       if (newValue == 1.0) {
          GridWindow::directSelect((String)widgetName);

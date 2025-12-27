@@ -1,6 +1,7 @@
 // Grid extension for Gig Performer by @rank13
 
 #include "LibMain.h"
+#include "Panel.h"
 
 namespace gigperformer {
    namespace sdk {
@@ -17,6 +18,28 @@ bool isSetlistMode = false;
 std::string Grid_Text = "GP Grid";
 int Grid_Duration = -1;
 int Grid_Font_Size = 80;
+
+int LibMain::GetPanelCount() {
+   return panelNames.size();
+}
+
+std::string LibMain::GetPanelName(int index) {
+   std::string text; 
+   size_t panelIndex = (size_t)index;
+   if (panelIndex >= 0 && panelIndex < panelNames.size())
+      text = panelNames[index];
+         
+   return text;      
+}
+
+std::string LibMain::GetPanelXML(int index) {
+   std::string text;
+   size_t panelIndex = (size_t)index;
+   if (panelIndex >= 0 && panelIndex < panelNames.size()) {
+        text = panelXML[index];
+   }
+   return text;
+}
 
 void LibMain::OnStatusChanged(GPStatusType status) {
     switch (status) {

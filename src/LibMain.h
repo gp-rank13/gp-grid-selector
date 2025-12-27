@@ -31,6 +31,11 @@ extern int Grid_Position_Y;
 
 class LibMain : public gigperformer::sdk::GigPerformerAPI
 {
+protected:
+    int GetPanelCount() override;
+    std::string GetPanelName(int index) override;
+    std::string GetPanelXML(int index) override;
+
 public:
     // These must be here but no need to do anything unless you want extra behavior
      LibMain(LibraryHandle handle) : GigPerformerAPI(handle) {}

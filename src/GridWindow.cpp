@@ -466,9 +466,11 @@ void GridWindow::resized() {
 
 void GridWindow::gridBank(bool down) {
     MessageManager::getInstance()->callAsync([down]() {
-        gridWindow->gridStartIndex = down ? jmin(gridWindow->gridStartIndex + (gridWindow->gridBankRowCount * gridWindow->gridItemWidthCount), gridWindow->gridItems.size() - (gridWindow->gridBankRowCount * gridWindow->gridItemWidthCount) - 1)
-                                        : jmax(gridWindow->gridStartIndex - (gridWindow->gridBankRowCount * gridWindow->gridItemWidthCount), 0);
-        gridWindow->updateGrid();
+        if (gridWindow->gridItems.size() > gridWindow->gridItemWidthCount * gridWindow->gridItemHeightCount) {
+            gridWindow->gridStartIndex = down ? jmin(gridWindow->gridStartIndex + (gridWindow->gridBankRowCount * gridWindow->gridItemWidthCount), gridWindow->gridItems.size() - (gridWindow->gridBankRowCount * gridWindow->gridItemWidthCount) - 1)
+                                            : jmax(gridWindow->gridStartIndex - (gridWindow->gridBankRowCount * gridWindow->gridItemWidthCount), 0);
+            gridWindow->updateGrid();
+        }
     });
 }
 
@@ -584,6 +586,7 @@ void GridSelectorItem::paint (Graphics& g)
                         getLocalBounds().reduced (25, 15),
                         Justification::topLeft, 1, 1.f);
     // Direct Select Number
+    fontHeight = font.getHeight();
     if (directSelectNumber >= 1 ) {
         String controllerNumberText = String(directSelectNumber);
         auto stringWidth = font.getStringWidth(controllerNumberText);

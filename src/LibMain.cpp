@@ -88,6 +88,13 @@ void LibMain::OnRackspaceActivated() {
     }
 }
 
+void LibMain::OnVariationChanged(int oldIndex, int newIndex) {
+    if (isGigFileLoading) return;
+    if (newIndex >= 0 && oldIndex != newIndex && !inSetlistMode()) {
+        GridWindow::sceneChanged(newIndex,getVariationNames(getCurrentRackspaceIndex()));
+    }
+}
+
 void LibMain::OnModeChanged(int mode) {
    //isSetlistMode = (mode == GP_SetlistMode) ? true : false;
    /*
@@ -97,6 +104,7 @@ void LibMain::OnModeChanged(int mode) {
         ExtensionWindow::selectSongForCurrentButton();
    */
    if (isGigFileLoading) return;
+   GridWindow::songRackspaceModeChanged();
    if (mode == GP_SetlistMode) {
       GridWindow::presetChanged(getCurrentSongIndex(), getSongNames());    
    } else {
@@ -111,6 +119,10 @@ void LibMain::OnWidgetValueChanged(const std::string& widgetName, double newValu
             GridWindow::showGrid();
          } else {
             GridWindow::hideGrid();
+         }
+    } else if (widgetName == "GPGS_MODE") {
+         if (newValue == 1.0) {
+            GridWindow::toggleGridDisplayMode();
          }
     } else if (widgetName == "GPGS_BANKUP") {
       if (newValue == 1.0) {
@@ -157,4 +169,15 @@ StringArray LibMain::getRackspaceNames() {
         rackspaceNames.add(rackspaceName);
     }
     return rackspaceNames;
+}
+
+StringArray LibMain::getVariationNames(int rackspaceIndex) {
+    StringArray variationNames;
+    String variationName;
+    int variationCount = getVariationCount(rackspaceIndex);
+    for (int i = 0; i < variationCount; ++i) { 
+        variationName = getVariationName(rackspaceIndex, i);
+        variationNames.add(variationName);
+    }
+    return variationNames;
 }

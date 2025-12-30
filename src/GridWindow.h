@@ -143,6 +143,11 @@ public:
   void static titleChanged(int index, String name);
   void static directSelect(String name);
   void static gridBank(bool down);
+  void static songRackspaceModeChanged();
+
+  void updateGridItems(bool presetMode);
+  void setGridDisplayMode (bool presetMode);
+  void static toggleGridDisplayMode();
 
   std::unique_ptr<GridSelectorMain> grid;
   std::unique_ptr<GridSelectorTitle> gridTitle;
@@ -152,19 +157,33 @@ public:
   std::unique_ptr<ShapeButton> preferencesButton;
   std::unique_ptr<ShapeButton> preferencesCloseButton;
   std::unique_ptr<ShapeButton> closeButton;
+  std::unique_ptr<ShapeButton> backButton;
+
   static GridWindow* gridWindow;
   int gridItemWidthCount = GRID_COLUMNS_DEFAULT;
   int gridItemHeightCount = GRID_ROWS_DEFAULT;
   int directSelectCount = GRID_DIRECT_SELECT_DEFAULT;
   int gridBankRowCount = 1;
   bool gridCloseOnItemSelect = false;
+  bool gridDisplaySceneNameInTitle = false;
+  bool gridDisplayZeroBasedNumbers = false;
+  bool gridPresetMode = true;
+  int gridStartIndex = 0;
+  int presetIndex = 0;
+  int presetGridStartIndex = 0;
+  int sceneIndex = 0;
+  int sceneGridStartIndex = 0;
 
 private:
   void updateGrid();
+
   int gridDirectSelect(int index);
   std::unique_ptr<GridTimer> gridTimer;
-  int gridStartIndex = 0;
+  //int gridStartIndex = 0; moving to public for testing
   OwnedArray<GridSelectorItem> gridItems;
+  StringArray presetNames;
+  StringArray sceneNames;
+
   std::unique_ptr<GridPreferenceUpButton> gridColumnUpButton;
   std::unique_ptr<GridPreferenceDownButton> gridColumnDownButton;
   std::unique_ptr<GridPreferenceUpButton> gridRowUpButton;
@@ -173,7 +192,10 @@ private:
   std::unique_ptr<GridPreferenceDownButton> gridBankRowDownButton;
   std::unique_ptr<GridPreferenceUpButton> gridDirectSelectUpButton;
   std::unique_ptr<GridPreferenceDownButton> gridDirectSelectDownButton;
+  //std::unique_ptr<DrawableButton> prefToggleLatchingSwitches;
   std::unique_ptr<DrawableButton> prefToggleCloseOnSelect;
+  std::unique_ptr<DrawableButton> prefToggleDisplaySceneNameInTitle;
+  std::unique_ptr<DrawableButton> prefToggleDisplayZeroBasedNumbers;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GridWindow)
 };

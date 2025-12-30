@@ -53,6 +53,16 @@ GridWindow::GridWindow ()
     closeButton->addListener (this);
     addAndMakeVisible (closeButton.get());
 
+    Path p3;
+    p3.loadPathFromData (backUpArrowPath, sizeof (backUpArrowPath));
+    p3.applyTransform(juce::AffineTransform::verticalFlip(0));
+    backButton.reset (new ShapeButton ( "backButton", Colours::lightgrey, Colours::grey, Colours::darkgrey ));
+    backButton->setShape (p3, true, true, false);
+    backButton->setClickingTogglesState(false);
+    backButton->setTooltip("Back");
+    backButton->addListener (this);
+    addChildComponent (backButton.get());
+
     preferencesCloseButton.reset (new ShapeButton ( "prefsCloseButton", Colours::lightgrey, Colours::grey, Colours::darkgrey ));
     preferencesCloseButton->setShape (p2, true, true, false);
     preferencesCloseButton->setClickingTogglesState(false);
@@ -110,6 +120,15 @@ GridWindow::GridWindow ()
     DrawableImage on, off;
     on.setImage(toggleOn);
     off.setImage(toggleOff);
+    /*
+    prefToggleLatchingSwitches.reset (new DrawableButton("latchingSwitches", DrawableButton::ImageFitted));
+    prefToggleLatchingSwitches->setImages(&off, 0, 0, 0, &on);
+    prefToggleLatchingSwitches->setClickingTogglesState(true);
+    prefToggleLatchingSwitches->setRepaintsOnMouseActivity(true); 
+    prefToggleLatchingSwitches->addListener (this);
+    prefToggleLatchingSwitches->setColour (DrawableButton::backgroundOnColourId, Colour(0x00000000));
+    gridMenu->addAndMakeVisible(prefToggleLatchingSwitches.get());
+    */
 
     prefToggleCloseOnSelect.reset (new DrawableButton("closeOnSelect", DrawableButton::ImageFitted));
     prefToggleCloseOnSelect->setImages(&off, 0, 0, 0, &on);
@@ -118,6 +137,22 @@ GridWindow::GridWindow ()
     prefToggleCloseOnSelect->addListener (this);
     prefToggleCloseOnSelect->setColour (DrawableButton::backgroundOnColourId, Colour(0x00000000));
     gridMenu->addAndMakeVisible(prefToggleCloseOnSelect.get());
+
+    prefToggleDisplaySceneNameInTitle.reset (new DrawableButton("displaySecondaryName", DrawableButton::ImageFitted));
+    prefToggleDisplaySceneNameInTitle->setImages(&off, 0, 0, 0, &on);
+    prefToggleDisplaySceneNameInTitle->setClickingTogglesState(true);
+    prefToggleDisplaySceneNameInTitle->setRepaintsOnMouseActivity(true); 
+    prefToggleDisplaySceneNameInTitle->addListener (this);
+    prefToggleDisplaySceneNameInTitle->setColour (DrawableButton::backgroundOnColourId, Colour(0x00000000));
+    gridMenu->addAndMakeVisible(prefToggleDisplaySceneNameInTitle.get());
+
+    prefToggleDisplayZeroBasedNumbers.reset (new DrawableButton("displayZeroBasedNumbers", DrawableButton::ImageFitted));
+    prefToggleDisplayZeroBasedNumbers->setImages(&off, 0, 0, 0, &on);
+    prefToggleDisplayZeroBasedNumbers->setClickingTogglesState(true);
+    prefToggleDisplayZeroBasedNumbers->setRepaintsOnMouseActivity(true); 
+    prefToggleDisplayZeroBasedNumbers->addListener (this);
+    prefToggleDisplayZeroBasedNumbers->setColour (DrawableButton::backgroundOnColourId, Colour(0x00000000));
+    gridMenu->addAndMakeVisible(prefToggleDisplayZeroBasedNumbers.get());
     
     // Component position/size
     auto y = bounds.getHeight() * 0.1f;
@@ -126,25 +161,34 @@ GridWindow::GridWindow ()
     grid->setBounds(bounds.withTop(y).withRight(rightX));
     gridBankUp->setBounds(rightX, y, y, grid->getHeight() / 2);
     gridBankDown->setBounds(rightX, y + (grid->getHeight() / 2), y, grid->getHeight() / 2);
+    backButton->setBounds(getWidth() - 220, 40, 35, 35);
     preferencesButton->setBounds(getWidth() - 140, 38, 38, 38);
     closeButton->setBounds(getWidth() - 60, 40, 35, 35);
-    gridMenu->setBounds(bounds.getWidth() - 480, y - 10, 400, 900 );
-    preferencesCloseButton->setBounds(gridMenu->getWidth() - 60, 40, 35, 35);
-    gridColumnDownButton->setBounds(260,200,50,50);
-    gridColumnUpButton->setBounds(320,200,50,50);
-    gridRowDownButton->setBounds(260,270,50,50);
-    gridRowUpButton->setBounds(320,270,50,50);
-    gridBankRowDownButton->setBounds(260,440,50,50);
-    gridBankRowUpButton->setBounds(320,440,50,50);
-    gridDirectSelectDownButton->setBounds(260,610,50,50);
-    gridDirectSelectUpButton->setBounds(320,610,50,50);
-    prefToggleCloseOnSelect->setBounds(30,780,50,50);
+    gridMenu->setBounds(bounds.getWidth() - 475, y - 15, 400, 920 );
+    preferencesCloseButton->setBounds(gridMenu->getWidth() - 70, 30, 35, 35);
+    gridColumnDownButton->setBounds(260,170,50,50);
+    gridColumnUpButton->setBounds(320,170,50,50);
+    gridRowDownButton->setBounds(260,230,50,50);
+    gridRowUpButton->setBounds(320,230,50,50);
+    gridBankRowDownButton->setBounds(260,380,50,50);
+    gridBankRowUpButton->setBounds(320,380,50,50);
+    gridDirectSelectDownButton->setBounds(260,530,50,50);
+    gridDirectSelectUpButton->setBounds(320,530,50,50);
+    //prefToggleLatchingSwitches->setBounds(30,640,50,50);
+    prefToggleCloseOnSelect->setBounds(30,675,50,50);
+    prefToggleDisplaySceneNameInTitle->setBounds(30,750,50,50);
+    prefToggleDisplayZeroBasedNumbers->setBounds(30,825,50,50);
 }
 
 GridWindow::~GridWindow()
 {
     grid = nullptr;
+    gridWindow = nullptr;
     gridTimer = nullptr;
+    gridMenu = nullptr;
+    gridTitle = nullptr;
+    gridBankUp = nullptr;
+    gridBankDown = nullptr;
 }
 
 void GridWindow::initialize()
@@ -186,6 +230,9 @@ void GridWindow::hideGrid()
     {
         MessageManager::getInstance()->callAsync([]() {
                                                         gridWindow->setVisible(false);
+                                                        //gridWindow->gridPresetMode = true;
+                                                        //gridWindow->updateGridItems(true);
+                                                        //lib->setWidgetValue("GPGS_DISPLAY", 0.0);
                                                     });
     }
 }
@@ -367,27 +414,35 @@ void GridWindow::setGridDuration(int ms)
 void GridWindow::buttonClicked (Button* buttonThatWasClicked)
 {
     if (buttonThatWasClicked == closeButton.get()) {
-        setVisible(false);
+        //setVisible(false);
         gridMenu->setVisible(false);
         preferencesButton->setToggleState(false, juce::NotificationType::dontSendNotification);
         lib->setWidgetValue("GPGS_DISPLAY", 0.0);
+        hideGrid();
+    } else if (buttonThatWasClicked == backButton.get()) {
+        setGridDisplayMode(true);
     } else if (buttonThatWasClicked == preferencesButton.get()) {
         gridMenu->setVisible(buttonThatWasClicked->getToggleState());
-    } if (buttonThatWasClicked == preferencesCloseButton.get()) {
+    } else if (buttonThatWasClicked == preferencesCloseButton.get()) {
         gridMenu->setVisible(false);
         preferencesButton->setToggleState(false, juce::NotificationType::dontSendNotification);
     } else if (buttonThatWasClicked == gridColumnUpButton.get()) {
         gridItemWidthCount = jmin(gridItemWidthCount + 1, GRID_COLUMNS_MAX);
         updateGrid();
+        gridMenu->repaint();
     } else if (buttonThatWasClicked == gridColumnDownButton.get()) {
         gridItemWidthCount = jmax(gridItemWidthCount - 1, GRID_COLUMNS_MIN);
         updateGrid();
+        gridMenu->repaint();
     } else if (buttonThatWasClicked == gridRowUpButton.get()) {
         gridItemHeightCount = jmin(gridItemHeightCount + 1, GRID_ROWS_MAX);
         updateGrid();
+        gridMenu->repaint();
     } else if (buttonThatWasClicked == gridRowDownButton.get()) {
         gridItemHeightCount = jmax(gridItemHeightCount - 1, GRID_ROWS_MIN);
+        gridBankRowCount = jmin(gridItemHeightCount, gridBankRowCount);
         updateGrid();
+        gridMenu->repaint();
     } else if (buttonThatWasClicked == gridBankRowUpButton.get()) {
         gridBankRowCount = jmin(gridBankRowCount + 1, gridItemHeightCount);
         updateGrid();
@@ -406,6 +461,12 @@ void GridWindow::buttonClicked (Button* buttonThatWasClicked)
         gridMenu->repaint();
     } else if (buttonThatWasClicked == prefToggleCloseOnSelect.get()) {
         gridCloseOnItemSelect = buttonThatWasClicked->getToggleState();
+    } else if (buttonThatWasClicked == prefToggleDisplaySceneNameInTitle.get()) {
+        gridDisplaySceneNameInTitle = buttonThatWasClicked->getToggleState();
+        gridTitle->repaint();
+    } else if (buttonThatWasClicked == prefToggleDisplayZeroBasedNumbers.get()) {
+        gridDisplayZeroBasedNumbers = buttonThatWasClicked->getToggleState();
+        updateGrid();
     }
 }
 
@@ -413,6 +474,21 @@ void GridWindow::presetChanged(int index, StringArray names) {
     if (gridWindow == nullptr) return;
     if (gridWindow->grid == nullptr) return;
     MessageManager::getInstance()->callAsync([index, names]() {
+        //gridWindow->gridPresetMode = true;
+        gridWindow->presetNames.clear();
+        gridWindow->presetNames.addArray(names);
+        gridWindow->presetIndex = index;
+        gridWindow->sceneGridStartIndex = 0;
+        gridWindow->setGridDisplayMode(gridWindow->gridPresetMode);
+        /*
+        if (gridWindow->gridPresetMode) {
+            //gridWindow->updateGridItems(true);
+            gridWindow->setGridDisplayMode(true);
+        } else {
+            //gridWindow->sceneChanged(lib->getCurrentSongpartIndex(),lib->getSongPartNames(index));
+        }
+        */
+        /*
         gridWindow->gridItems.clear();
         gridWindow->grid->removeAllChildren();
         
@@ -428,11 +504,40 @@ void GridWindow::presetChanged(int index, StringArray names) {
         titleChanged(index, names[index]);
         gridWindow->updateGrid();
         gridWindow->resized();
+        */
     });
 }
 
 void GridWindow::sceneChanged(int index, StringArray names) {
+    if (gridWindow == nullptr) return;
+    if (gridWindow->grid == nullptr) return;
+    //if (gridWindow->gridPresetMode) return;
     MessageManager::getInstance()->callAsync([index, names]() {
+        //gridWindow->gridPresetMode = true;
+        gridWindow->sceneNames.clear();
+        gridWindow->sceneNames.addArray(names);
+        gridWindow->sceneIndex = index;
+        if (!gridWindow->gridPresetMode)
+            //gridWindow->updateGridItems(false);
+            gridWindow->setGridDisplayMode(false);
+        gridWindow->gridTitle->repaint();
+        /*
+        gridWindow->gridItems.clear();
+        gridWindow->grid->removeAllChildren();
+        
+        for (int i = 0; i < names.size(); ++i) { 
+            GridSelectorItem* gsi = new GridSelectorItem();
+            gsi->number = i;
+            gsi->name = names[i];
+            gsi->selected = i == index;
+
+            gridWindow->gridItems.add(gsi);
+            gridWindow->grid->addAndMakeVisible(gsi);
+        }
+        titleChanged(presetIndex, presetName);
+        gridWindow->updateGrid();
+        gridWindow->resized();
+        */
     });
 }
 
@@ -440,6 +545,11 @@ void GridWindow::titleChanged(int index, String name) {
     gridWindow->gridTitle->number = index;
     gridWindow->gridTitle->name = name;
     gridWindow->gridTitle->repaint();
+}
+
+void GridWindow::songRackspaceModeChanged() {
+    if (gridWindow == nullptr) return;
+    gridWindow->gridStartIndex = 0;
 }
 
 void GridWindow::resized() {
@@ -466,12 +576,47 @@ void GridWindow::resized() {
 
 void GridWindow::gridBank(bool down) {
     MessageManager::getInstance()->callAsync([down]() {
-        if (gridWindow->gridItems.size() > gridWindow->gridItemWidthCount * gridWindow->gridItemHeightCount) {
-            gridWindow->gridStartIndex = down ? jmin(gridWindow->gridStartIndex + (gridWindow->gridBankRowCount * gridWindow->gridItemWidthCount), gridWindow->gridItems.size() - (gridWindow->gridBankRowCount * gridWindow->gridItemWidthCount) - 1)
-                                            : jmax(gridWindow->gridStartIndex - (gridWindow->gridBankRowCount * gridWindow->gridItemWidthCount), 0);
-            gridWindow->updateGrid();
-        }
+        int startIndex = gridWindow->gridStartIndex;
+        int itemSize = gridWindow->gridItems.size();
+        int gridSize = gridWindow->gridItemWidthCount * gridWindow->gridItemHeightCount;
+        int bankSize = gridWindow->gridItemWidthCount * gridWindow->gridBankRowCount;
+
+        if (down && startIndex + bankSize >= itemSize) return;
+        
+        gridWindow->gridStartIndex = down ? jmin(startIndex + bankSize, itemSize - 1)// - (gridWindow->gridBankRowCount * gridWindow->gridItemWidthCount))
+                                        : jmax(startIndex - bankSize, 0);
+        
+        gridWindow->updateGrid();
     });
+}
+
+void GridWindow::updateGridItems(bool presetMode) {
+
+    gridWindow->gridItems.clear();
+    gridWindow->grid->removeAllChildren();
+    StringArray names = presetMode ? gridWindow->presetNames : gridWindow->sceneNames;
+    int index = presetMode ? gridWindow->presetIndex : gridWindow->sceneIndex;
+
+    if (!presetMode) {
+        //gridWindow->sceneChanged(lib->getCurrentSongpartIndex(),lib->getSongPartNames(gridWindow->presetIndex));
+        gridWindow->sceneIndex = lib->inSetlistMode() ? lib->getCurrentSongpartIndex() : lib->getCurrentVariationIndex();
+        gridWindow->sceneNames = lib->inSetlistMode() ? lib->getSongPartNames(gridWindow->presetIndex) : lib->getVariationNames(gridWindow->presetIndex);
+        names = gridWindow->sceneNames;
+        index = gridWindow->sceneIndex;
+    }
+    
+    for (int i = 0; i < names.size(); ++i) { 
+        GridSelectorItem* gsi = new GridSelectorItem();
+        gsi->number = i;
+        gsi->name = names[i];
+        gsi->selected = i == index;
+
+        gridWindow->gridItems.add(gsi);
+        gridWindow->grid->addAndMakeVisible(gsi);
+    }
+    titleChanged(presetIndex, presetNames[presetIndex]);
+    gridWindow->updateGrid();
+    gridWindow->resized();
 }
 
 void GridWindow::updateGrid() {
@@ -498,6 +643,7 @@ void GridWindow::updateGrid() {
         }
     }
     resized();
+    gridTitle->repaint();
 }
 
 void GridWindow::directSelect(String name) {
@@ -507,17 +653,48 @@ void GridWindow::directSelect(String name) {
         for (int i = gridWindow->gridStartIndex; i < gridWindow->gridItems.size(); ++i) { 
             if (gridWindow->gridItems[i]->directSelectNumber == number) {
                 if (lib->inSetlistMode()) {
-                    (void)lib->switchToSong(i, 0);
+                    if (gridWindow->gridPresetMode) {
+                        (void)lib->switchToSong(i, 0);
+                    } else {
+                        (void)lib->switchToSongPart(i);
+                    }
                 } else {
-                    (void)lib->switchToRackspace(i, 0);
+                    if (gridWindow->gridPresetMode) {
+                        (void)lib->switchToRackspace(i, 0);
+                    } else {
+                        (void)lib->switchToVariation(i);
+                    }
                 }
                 if (GridWindow::gridWindow->gridCloseOnItemSelect) {
                     gridWindow->setGridDuration(GRID_CLOSE_DELAY_MS);
-    }
+                }
                 return;
             }
         }
     });
+}
+
+void GridWindow::setGridDisplayMode (bool presetMode) {
+    // Store current bank/grid item starting inde
+    if (gridPresetMode) {
+        presetGridStartIndex = gridStartIndex;
+    } else {
+        sceneGridStartIndex = gridStartIndex;
+    }
+    backButton->setVisible(!presetMode);
+    gridPresetMode = presetMode;
+    gridStartIndex = presetMode ? presetGridStartIndex : sceneGridStartIndex;
+    updateGridItems(presetMode);
+}
+
+void GridWindow::toggleGridDisplayMode() {
+    if (!gridWindow->isVisible()) {
+        gridWindow->setVisible(true);
+    } else if (gridWindow->gridPresetMode) {
+        gridWindow->setGridDisplayMode(false);
+    } else {
+        gridWindow->setGridDisplayMode(true);
+    }
 }
 
 void GridSelectorMain::paint (Graphics& g)
@@ -582,7 +759,8 @@ void GridSelectorItem::paint (Graphics& g)
                         Justification::centred, displayLines, 1.f);
     // Number
     g.setColour (Colour(0xff606060));
-    g.drawFittedText (String(number),
+    int displayNumber = GridWindow::gridWindow->gridDisplayZeroBasedNumbers ? number : number + 1;
+    g.drawFittedText (String(displayNumber),
                         getLocalBounds().reduced (25, 15),
                         Justification::topLeft, 1, 1.f);
     // Direct Select Number
@@ -614,9 +792,33 @@ void GridSelectorItem::paint (Graphics& g)
 
 void GridSelectorItem::mouseDown(const MouseEvent&) {
     if (lib->inSetlistMode()) {
-        (void)lib->switchToSong(number, 0);
+        if (GridWindow::gridWindow->gridPresetMode) {
+            //GridWindow::gridWindow->setGridDisplayMode(false);
+
+            if (GridWindow::gridWindow->presetIndex == number) {
+                GridWindow::gridWindow->setGridDisplayMode(false);
+            } else {
+                (void)lib->switchToSong(number, 0);
+                juce::Timer::callAfterDelay (500,[]() {
+                    GridWindow::gridWindow->setGridDisplayMode(false);
+                });
+            }
+        } else {
+            (void)lib->switchToSongPart(number);
+        }
     } else {
-        (void)lib->switchToRackspace(number, 0);
+        if (GridWindow::gridWindow->gridPresetMode) {
+            if (GridWindow::gridWindow->presetIndex == number) {
+                GridWindow::gridWindow->setGridDisplayMode(false);
+            } else {
+                (void)lib->switchToRackspace(number, 0);
+                juce::Timer::callAfterDelay (500,[]() {
+                    GridWindow::gridWindow->setGridDisplayMode(false);
+                });
+            }
+        } else {
+            (void)lib->switchToVariation(number);
+        }
     }
     if (GridWindow::gridWindow->gridCloseOnItemSelect) {
         GridWindow::setGridDuration(GRID_CLOSE_DELAY_MS);
@@ -684,13 +886,20 @@ void GridSelectorTitle::paint (Graphics& g)
     // Number
     g.setColour (Colour(0xff808080));
     g.setFont (fontSize);
-    g.drawFittedText (String(number),
+    int displayNumber = GridWindow::gridWindow->gridDisplayZeroBasedNumbers ? number : number + 1;
+    g.drawFittedText (String(displayNumber),
                         getLocalBounds().reduced (30, 0),
                         Justification::left, 1, 1.f);
     // Name
     g.setColour (Colours::white);
-    g.drawFittedText (name,
-                        area.reduced (50 + g.getCurrentFont().getStringWidth(String(number)), 0),
+    String title = name;
+    if (GridWindow::gridWindow->gridDisplaySceneNameInTitle) {
+        String sceneName = lib->inSetlistMode() ? lib->getSongpartName(lib->getCurrentSongIndex(), lib->getCurrentSongpartIndex())
+                                                : lib->getVariationName(lib->getCurrentRackspaceIndex(), lib->getCurrentVariationIndex());
+        title = title + " — " + sceneName;
+    }
+    g.drawFittedText (title,
+                        area.reduced (50 + g.getCurrentFont().getStringWidth(String(displayNumber)), 0),
                         Justification::left, 1, 1.f);
     
     // Line highlight
@@ -779,67 +988,71 @@ void GridMenu::paint (Graphics& g)
     g.setFont (50);
     g.setColour (Colours::white);
     g.drawFittedText ("Preferences",
-                        getLocalBounds().withLeft(30).withTop(30),
+                        getLocalBounds().withLeft(30).withTop(20),
                         Justification::topLeft, 1, 1.f);
     
     g.setColour (Colour(0xff404040));                    
-    g.fillRect(30, 110, 340, 1);
+    g.fillRect(30, 90, 340, 1);
 
     g.setFont (40);
     g.setColour (Colour(0xffe0e0e0));
     g.drawFittedText ("Grid Size",
-                        getLocalBounds().withLeft(30).withTop(130),
+                        getLocalBounds().withLeft(30).withTop(110),
                         Justification::topLeft, 1, 1.f);
     g.setFont (35);
     g.setColour (Colour(0xffd0d0d0));                    
     g.drawFittedText ("Columns: " + String(GridWindow::gridWindow->gridItemWidthCount),
-                        getLocalBounds().withLeft(30).withTop(205),
+                        getLocalBounds().withLeft(30).withTop(175),
                         Justification::topLeft, 1, 1.f);
    
     g.drawFittedText ("Rows: " + String(GridWindow::gridWindow->gridItemHeightCount),
-                        getLocalBounds().withLeft(30).withTop(275),
+                        getLocalBounds().withLeft(30).withTop(235),
                         Justification::topLeft, 1, 1.f);
     
     g.setColour (Colour(0xff404040));                    
-    g.fillRect(30, 350, 340, 1);
+    g.fillRect(30, 300, 340, 1);
 
     g.setFont (40);
     g.setColour (Colour(0xffe0e0e0));
     g.drawFittedText ("Bank Size",
-                        getLocalBounds().withLeft(30).withTop(370),
+                        getLocalBounds().withLeft(30).withTop(320),
                         Justification::topLeft, 1, 1.f);
     g.setFont (35);    
     g.setColour (Colour(0xffd0d0d0));                                
     g.drawFittedText ("Rows: " + String(GridWindow::gridWindow->gridBankRowCount),
-                        getLocalBounds().withLeft(30).withTop(445),
+                        getLocalBounds().withLeft(30).withTop(385),
                         Justification::topLeft, 1, 1.f);
     
     g.setColour (Colour(0xff404040));                    
-    g.fillRect(30, 520, 340, 1);
+    g.fillRect(30, 450, 340, 1);
 
     g.setFont (40);
     g.setColour (Colour(0xffe0e0e0));
     g.drawFittedText ("Direct Select",
-                        getLocalBounds().withLeft(30).withTop(540),
+                        getLocalBounds().withLeft(30).withTop(470),
                         Justification::topLeft, 1, 1.f);
     g.setFont (35);    
     g.setColour (Colour(0xffd0d0d0));                                
     g.drawFittedText ("Count: " + String(GridWindow::gridWindow->directSelectCount),
-                        getLocalBounds().withLeft(30).withTop(615),
+                        getLocalBounds().withLeft(30).withTop(535),
                         Justification::topLeft, 1, 1.f);
-
+    /*
+    g.drawFittedText ("Latching Switches",
+                        getLocalBounds().withLeft(100).withTop(645),
+                        Justification::topLeft, 1, 1.f);
+    */
     g.setColour (Colour(0xff404040));                    
-    g.fillRect(30, 690, 340, 1);
+    g.fillRect(30, 600, 340, 1);
 
     g.setFont (40);
     g.setColour (Colour(0xffe0e0e0));
-    g.drawFittedText ("On Item Selection",
-                        getLocalBounds().withLeft(30).withTop(710),
+    g.drawFittedText ("On Selection",
+                        getLocalBounds().withLeft(30).withTop(620),
                         Justification::topLeft, 1, 1.f);
     g.setFont (35);    
     g.setColour (Colour(0xffd0d0d0));                     
     g.drawFittedText ("Close Selector",
-                        getLocalBounds().withLeft(100).withTop(785),
+                        getLocalBounds().withLeft(100).withTop(680),
                         Justification::topLeft, 1, 1.f);
 }
 

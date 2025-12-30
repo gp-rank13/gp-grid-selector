@@ -57,6 +57,7 @@ public:
     void OnSongPartChanged(int oldIndex, int newIndex) override;
     void OnSetlistChanged(const std::string &newSetlistName) override;
     void OnRackspaceActivated() override;
+    void OnVariationChanged(int oldIndex, int newIndex) override;
     void OnWidgetValueChanged(const std::string &widgetName, double newValue) override;  
 
     void Initialization() override
@@ -69,10 +70,12 @@ public:
         registerCallback("OnSongPartChanged");
         registerCallback("OnSetlistChanged");
         registerCallback("OnRackspaceActivated");
+        registerCallback("OnVariationChanged");
         registerCallback("OnModeChanged");
         registerCallback("OnWidgetValueChanged");
 
         listenForWidget("GPGS_DISPLAY", true);
+        listenForWidget("GPGS_MODE", true);
         listenForWidget("GPGS_BANKUP", true);
         listenForWidget("GPGS_BANKDOWN", true);
         for (int i = 1; i <= 20; ++i) {  
@@ -80,10 +83,13 @@ public:
         }
     }
 
-private:
     StringArray getSongNames();
     StringArray getSongPartNames(int songIndex);
     StringArray getRackspaceNames();
+    StringArray getVariationNames(int rackspaceIndex);
+
+private:
+
    
     // An XML description of your product
     std::string GetProductDescription() override // This MUST be defined in your class

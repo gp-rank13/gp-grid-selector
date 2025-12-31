@@ -968,21 +968,10 @@ void GridPopupMenuPreset::mouseDown(const MouseEvent&) {
     menu.showMenuAsync(opts,[=] (int result)
     {
         // Menu selection
-        switch (result)
-        {
-            case 1:
-                selectedItemText = ON_SELECTION_MENU_PRESETS[0];
-                break;
-            case 2:
-                selectedItemText = ON_SELECTION_MENU_PRESETS[1];
-                break;
-            case 3:
-                selectedItemText = ON_SELECTION_MENU_PRESETS[2];
-                break;
-            default:
-                break;
+        if (result >= 1 && result <= ON_SELECTION_MENU_PRESETS.size()) {
+            selectedItemText = ON_SELECTION_MENU_PRESETS[result - 1];
+            selectedItem = result;
         }
-        selectedItem = result;
         repaint();
     });
     
@@ -1002,18 +991,10 @@ void GridPopupMenuScene::mouseDown(const MouseEvent&) {
     menu.showMenuAsync(opts,[=] (int result)
     {
         // Menu selection
-        switch (result)
-        {
-            case 1:
-                selectedItemText = ON_SELECTION_MENU_SCENES[0];
-                break;
-            case 2:
-                selectedItemText = ON_SELECTION_MENU_SCENES[1];
-                break;
-            default:
-                break;
+        if (result >= 1 && result <= ON_SELECTION_MENU_SCENES.size()) {
+            selectedItemText = ON_SELECTION_MENU_PRESETS[result - 1];
+            selectedItem = result;
         }
-        selectedItem = result;
         repaint();
     });
     

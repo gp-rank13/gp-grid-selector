@@ -1,4 +1,4 @@
-// Grid extension for Gig Performer by @rank13
+// Grid selector extension for Gig Performer by @rank13
 
 #include <juce_events/juce_events.h>
 #include "GridWindow.h"
@@ -136,9 +136,9 @@ GridWindow::GridWindow ()
     prefToggleCloseOnSelect->setRepaintsOnMouseActivity(true); 
     prefToggleCloseOnSelect->addListener (this);
     prefToggleCloseOnSelect->setColour (DrawableButton::backgroundOnColourId, Colour(0x00000000));
-    gridMenu->addAndMakeVisible(prefToggleCloseOnSelect.get());
+    //gridMenu->addAndMakeVisible(prefToggleCloseOnSelect.get());
 
-    prefToggleDisplaySceneNameInTitle.reset (new DrawableButton("displaySecondaryName", DrawableButton::ImageFitted));
+    prefToggleDisplaySceneNameInTitle.reset (new DrawableButton("displaySceneName", DrawableButton::ImageFitted));
     prefToggleDisplaySceneNameInTitle->setImages(&off, 0, 0, 0, &on);
     prefToggleDisplaySceneNameInTitle->setClickingTogglesState(true);
     prefToggleDisplaySceneNameInTitle->setRepaintsOnMouseActivity(true); 
@@ -153,6 +153,16 @@ GridWindow::GridWindow ()
     prefToggleDisplayZeroBasedNumbers->addListener (this);
     prefToggleDisplayZeroBasedNumbers->setColour (DrawableButton::backgroundOnColourId, Colour(0x00000000));
     gridMenu->addAndMakeVisible(prefToggleDisplayZeroBasedNumbers.get());
+
+    prefOnSelectionPresetMenu.reset (new GridPopupMenuPreset ());
+    prefOnSelectionPresetMenu->selectedItem = 1;
+    prefOnSelectionPresetMenu->selectedItemText = ON_SELECTION_MENU_PRESETS[0];
+    gridMenu->addAndMakeVisible(prefOnSelectionPresetMenu.get());
+
+    prefOnSelectionSceneMenu.reset (new GridPopupMenuScene ());
+    prefOnSelectionSceneMenu->selectedItem = 2;
+    prefOnSelectionSceneMenu->selectedItemText = ON_SELECTION_MENU_SCENES[1];
+    gridMenu->addAndMakeVisible(prefOnSelectionSceneMenu.get());
     
     // Component position/size
     auto y = bounds.getHeight() * 0.1f;
@@ -164,8 +174,8 @@ GridWindow::GridWindow ()
     backButton->setBounds(getWidth() - 220, 40, 35, 35);
     preferencesButton->setBounds(getWidth() - 140, 38, 38, 38);
     closeButton->setBounds(getWidth() - 60, 40, 35, 35);
-    gridMenu->setBounds(bounds.getWidth() - 475, y - 15, 400, 920 );
-    preferencesCloseButton->setBounds(gridMenu->getWidth() - 70, 30, 35, 35);
+    gridMenu->setBounds(bounds.getWidth() - 885, y - 15, 810, 650 );
+    preferencesCloseButton->setBounds(gridMenu->getWidth() - 75, 30, 35, 35);
     gridColumnDownButton->setBounds(260,170,50,50);
     gridColumnUpButton->setBounds(320,170,50,50);
     gridRowDownButton->setBounds(260,230,50,50);
@@ -175,9 +185,12 @@ GridWindow::GridWindow ()
     gridDirectSelectDownButton->setBounds(260,530,50,50);
     gridDirectSelectUpButton->setBounds(320,530,50,50);
     //prefToggleLatchingSwitches->setBounds(30,640,50,50);
-    prefToggleCloseOnSelect->setBounds(30,675,50,50);
-    prefToggleDisplaySceneNameInTitle->setBounds(30,750,50,50);
-    prefToggleDisplayZeroBasedNumbers->setBounds(30,825,50,50);
+    //prefToggleCloseOnSelect->setBounds(30,675,50,50);
+    prefToggleDisplayZeroBasedNumbers->setBounds(430,495,50,50);
+    prefToggleDisplaySceneNameInTitle->setBounds(430,550,50,50);
+
+    prefOnSelectionPresetMenu->setBounds(430,225,300,50);
+    prefOnSelectionSceneMenu->setBounds(430,345,300,50);
 }
 
 GridWindow::~GridWindow()
@@ -649,29 +662,21 @@ void GridWindow::updateGrid() {
 void GridWindow::directSelect(String name) {
     MessageManager::getInstance()->callAsync([name]() {
         // Extract direct select number from name
-        int number = name.getTrailingIntValue();
+        int directSelectNumber = name.getTrailingIntValue();
         for (int i = gridWindow->gridStartIndex; i < gridWindow->gridItems.size(); ++i) { 
-            if (gridWindow->gridItems[i]->directSelectNumber == number) {
-                if (lib->inSetlistMode()) {
-                    if (gridWindow->gridPresetMode) {
-                        (void)lib->switchToSong(i, 0);
-                    } else {
-                        (void)lib->switchToSongPart(i);
-                    }
-                } else {
-                    if (gridWindow->gridPresetMode) {
-                        (void)lib->switchToRackspace(i, 0);
-                    } else {
-                        (void)lib->switchToVariation(i);
-                    }
-                }
-                if (GridWindow::gridWindow->gridCloseOnItemSelect) {
-                    gridWindow->setGridDuration(GRID_CLOSE_DELAY_MS);
-                }
-                return;
+            if (gridWindow->gridItems[i]->directSelectNumber == directSelectNumber) {
+                gridWindow->triggerGridItem(gridWindow->gridItems[i]->number);
             }
         }
     });
+}
+
+void GridWindow::updateDirectSelectLabel() {
+    String label = lib->inSetlistMode() ? "Songs" : "Rackspaces";
+    if (!gridWindow->gridPresetMode) {
+        label = lib->inSetlistMode() ? "Song Parts" : "Variations";
+    }
+    lib->setWidgetCaption("GPGS_DIRECT_SELECT_LABEL","Direct Select - " + label.toStdString());
 }
 
 void GridWindow::setGridDisplayMode (bool presetMode) {
@@ -685,15 +690,63 @@ void GridWindow::setGridDisplayMode (bool presetMode) {
     gridPresetMode = presetMode;
     gridStartIndex = presetMode ? presetGridStartIndex : sceneGridStartIndex;
     updateGridItems(presetMode);
+    updateDirectSelectLabel();
 }
 
 void GridWindow::toggleGridDisplayMode() {
     if (!gridWindow->isVisible()) {
-        gridWindow->setVisible(true);
+        lib->setWidgetValue("GPGS_DISPLAY", 1.0);
+        //gridWindow->setVisible(true);
+        
     } else if (gridWindow->gridPresetMode) {
         gridWindow->setGridDisplayMode(false);
     } else {
         gridWindow->setGridDisplayMode(true);
+    }
+}
+
+void GridWindow::triggerGridItem (int number) {
+    if (gridWindow->gridPresetMode) {
+        int onSelectionAction = gridWindow->prefOnSelectionPresetMenu->selectedItem;
+        if (onSelectionAction == 1) {
+            if (gridWindow->presetIndex == number) {
+                gridWindow->setGridDisplayMode(false);
+            }  else {
+                if (lib->inSetlistMode()) {
+                    (void)lib->switchToSong(number, 0);
+                } else {
+                    (void)lib->switchToRackspace(number, 0);
+                }
+                juce::Timer::callAfterDelay (500,[]() {
+                    gridWindow->setGridDisplayMode(false);
+                });
+            }
+        } else if (onSelectionAction >= 2) {
+            if (lib->inSetlistMode()) {
+                (void)lib->switchToSong(number, 0);
+            } else {
+                (void)lib->switchToRackspace(number, 0);
+            }
+            if (onSelectionAction == 2) {
+                juce::Timer::callAfterDelay (500,[]() {
+                        hideGrid();
+                        lib->setWidgetValue("GPGS_DISPLAY", 0.0);
+                });
+            }
+        }
+    } else {
+        int onSelectionAction = gridWindow->prefOnSelectionSceneMenu->selectedItem;
+        if (lib->inSetlistMode()) {
+            (void)lib->switchToSongPart(number);
+        } else {
+            (void)lib->switchToVariation(number);
+        }
+        if (onSelectionAction == 1) {
+            juce::Timer::callAfterDelay (500,[]() {
+                    hideGrid();
+                    lib->setWidgetValue("GPGS_DISPLAY", 0.0);
+            });
+        }
     }
 }
 
@@ -791,9 +844,54 @@ void GridSelectorItem::paint (Graphics& g)
 }
 
 void GridSelectorItem::mouseDown(const MouseEvent&) {
+    GridWindow::gridWindow->triggerGridItem(number);
+    /*
+    if (GridWindow::gridWindow->gridPresetMode) {
+        int onSelectionAction = GridWindow::gridWindow->prefOnSelectionPresetMenu->selectedItem;
+        if (onSelectionAction == 1) {
+            if (GridWindow::gridWindow->presetIndex == number) {
+                GridWindow::gridWindow->setGridDisplayMode(false);
+            }  else {
+                if (lib->inSetlistMode()) {
+                    (void)lib->switchToSong(number, 0);
+                } else {
+                    (void)lib->switchToRackspace(number, 0);
+                }
+                juce::Timer::callAfterDelay (500,[]() {
+                    GridWindow::gridWindow->setGridDisplayMode(false);
+                });
+            }
+        } else if (onSelectionAction >= 2) {
+            if (lib->inSetlistMode()) {
+                (void)lib->switchToSong(number, 0);
+            } else {
+                (void)lib->switchToRackspace(number, 0);
+            }
+            if (onSelectionAction == 2) {
+                juce::Timer::callAfterDelay (500,[]() {
+                        GridWindow::hideGrid();
+                        lib->setWidgetValue("GPGS_DISPLAY", 0.0);
+                });
+            }
+        }
+    } else {
+        int onSelectionAction = GridWindow::gridWindow->prefOnSelectionSceneMenu->selectedItem;
+        if (lib->inSetlistMode()) {
+            (void)lib->switchToSongPart(number);
+        } else {
+            (void)lib->switchToVariation(number);
+        }
+        if (onSelectionAction == 1) {
+            juce::Timer::callAfterDelay (500,[]() {
+                    GridWindow::hideGrid();
+                    lib->setWidgetValue("GPGS_DISPLAY", 0.0);
+            });
+        }
+    }
+    */
+   /*
     if (lib->inSetlistMode()) {
         if (GridWindow::gridWindow->gridPresetMode) {
-            //GridWindow::gridWindow->setGridDisplayMode(false);
 
             if (GridWindow::gridWindow->presetIndex == number) {
                 GridWindow::gridWindow->setGridDisplayMode(false);
@@ -823,6 +921,7 @@ void GridSelectorItem::mouseDown(const MouseEvent&) {
     if (GridWindow::gridWindow->gridCloseOnItemSelect) {
         GridWindow::setGridDuration(GRID_CLOSE_DELAY_MS);
     }
+    */
 }
 
 void GridSelectorItem::mouseEnter(const MouseEvent&) {
@@ -854,6 +953,72 @@ void GridSelectorTitle::mouseDown(const MouseEvent &) {
     }
 }
 
+void GridPopupMenuPreset::mouseDown(const MouseEvent&) {
+    juce::PopupMenu menu;
+    menu.setLookAndFeel(popupLNF);
+    menu.addItem (1, ON_SELECTION_MENU_PRESETS[0]);
+    menu.addItem (2, ON_SELECTION_MENU_PRESETS[1]);
+    menu.addItem (3, ON_SELECTION_MENU_PRESETS[2]);
+
+    juce::PopupMenu::Options opts = juce::PopupMenu::Options()
+        .withTargetComponent(this)
+        .withPreferredPopupDirection(juce::PopupMenu::Options::PopupDirection::downwards)
+        .withStandardItemHeight(40);
+
+    menu.showMenuAsync(opts,[=] (int result)
+    {
+        // Menu selection
+        switch (result)
+        {
+            case 1:
+                selectedItemText = ON_SELECTION_MENU_PRESETS[0];
+                break;
+            case 2:
+                selectedItemText = ON_SELECTION_MENU_PRESETS[1];
+                break;
+            case 3:
+                selectedItemText = ON_SELECTION_MENU_PRESETS[2];
+                break;
+            default:
+                break;
+        }
+        selectedItem = result;
+        repaint();
+    });
+    
+}
+
+void GridPopupMenuScene::mouseDown(const MouseEvent&) {
+    juce::PopupMenu menu;
+    menu.setLookAndFeel(popupLNF);
+    menu.addItem (1, ON_SELECTION_MENU_SCENES[0]);
+    menu.addItem (2, ON_SELECTION_MENU_SCENES[1]);
+
+    juce::PopupMenu::Options opts = juce::PopupMenu::Options()
+        .withTargetComponent(this)
+        .withPreferredPopupDirection(juce::PopupMenu::Options::PopupDirection::downwards)
+        .withStandardItemHeight(40);
+
+    menu.showMenuAsync(opts,[=] (int result)
+    {
+        // Menu selection
+        switch (result)
+        {
+            case 1:
+                selectedItemText = ON_SELECTION_MENU_SCENES[0];
+                break;
+            case 2:
+                selectedItemText = ON_SELECTION_MENU_SCENES[1];
+                break;
+            default:
+                break;
+        }
+        selectedItem = result;
+        repaint();
+    });
+    
+}
+
 void GridSelectorBankUp::mouseEnter(const MouseEvent&) {
     hover = true;
     repaint();
@@ -870,6 +1035,16 @@ void GridSelectorBankDown::mouseEnter(const MouseEvent&) {
 }
 
 void GridSelectorBankDown::mouseExit(const MouseEvent&) {
+    hover = false;
+    repaint();
+}
+
+void GridPopupMenu::mouseEnter(const MouseEvent&) {
+    hover = true;
+    repaint();
+}
+
+void GridPopupMenu::mouseExit(const MouseEvent&) {
     hover = false;
     repaint();
 }
@@ -1041,19 +1216,66 @@ void GridMenu::paint (Graphics& g)
                         getLocalBounds().withLeft(100).withTop(645),
                         Justification::topLeft, 1, 1.f);
     */
+    //g.setColour (Colour(0xff404040));                    
+    //g.fillRect(30, 600, 340, 1);
+
+    // Column two
+
     g.setColour (Colour(0xff404040));                    
-    g.fillRect(30, 600, 340, 1);
+    g.fillRect(430, 90, 340, 1);
 
     g.setFont (40);
     g.setColour (Colour(0xffe0e0e0));
     g.drawFittedText ("On Selection",
-                        getLocalBounds().withLeft(30).withTop(620),
+                        getLocalBounds().withLeft(430).withTop(110),
                         Justification::topLeft, 1, 1.f);
-    g.setFont (35);    
-    g.setColour (Colour(0xffd0d0d0));                     
-    g.drawFittedText ("Close Selector",
-                        getLocalBounds().withLeft(100).withTop(680),
+    g.setFont (35);
+    g.setColour (Colour(0xffd0d0d0));                    
+    g.drawFittedText ("Songs/Rackspaces: ",
+                        getLocalBounds().withLeft(430).withTop(175),
                         Justification::topLeft, 1, 1.f);
+    g.drawFittedText ("Parts/Variations: ",
+                        getLocalBounds().withLeft(430).withTop(295),
+                        Justification::topLeft, 1, 1.f);
+    
+    g.setColour (Colour(0xff404040));                    
+    g.fillRect(430, 420, 340, 1);
+
+    g.setFont (40);
+    g.setColour (Colour(0xffe0e0e0));
+    g.drawFittedText ("Other",
+                        getLocalBounds().withLeft(430).withTop(440),
+                        Justification::topLeft, 1, 1.f);
+    g.setFont (30);
+    g.setColour (Colour(0xffd0d0d0)); 
+    g.drawFittedText ("Zero-Based Numbers",
+                    getLocalBounds().withLeft(500).withTop(500),
+                    Justification::topLeft, 1, 1.f);
+    g.drawFittedText ("Display Part/Variation Name in Header",
+                    getLocalBounds().withLeft(500).withTop(555),
+                    Justification::topLeft, 2, 1.f);
+}
+
+void GridPopupMenu::paint (Graphics& g)
+{
+    auto area = getLocalBounds().toFloat();
+
+    // Background
+    float cornerSize = 4.f;
+    if (hover) {
+        g.setColour (Colour(0xff252525));
+    } else {
+        g.setColour (Colour(0xff202020));;
+    }
+    
+    g.fillRoundedRectangle (area, cornerSize);
+
+    // Text
+    g.setFont (25);
+    g.setColour (Colour(0xffe0e0e0));
+    g.drawFittedText (selectedItemText,
+                        getLocalBounds().withLeft(10),
+                        Justification::centredLeft, 1, 1.f);
 }
 
 void GridTimer::timerCallback()

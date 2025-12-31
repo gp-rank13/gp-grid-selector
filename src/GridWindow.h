@@ -5,6 +5,7 @@
 #include <juce_graphics/juce_graphics.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "Constants.h"
+#include "PopupMenu.h"
 
 using namespace juce;
 
@@ -117,7 +118,41 @@ public:
     }
 };
 
+class GridPopupMenu : public Component
+{
+public:
+  GridPopupMenu () {};
+  //void mouseDown(const MouseEvent &e) override;
+  void mouseEnter (const MouseEvent& e) override;
+  void mouseExit (const MouseEvent& e) override;
+  void paint (Graphics& g) override;
 
+  String selectedItemText;
+  int selectedItem;
+  SharedResourcePointer<PopupMenuLookAndFeel> popupLNF;
+
+  private:
+    bool hover = false;
+
+
+  JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GridPopupMenu)
+};
+
+class GridPopupMenuPreset : public GridPopupMenu
+{
+public:
+  GridPopupMenuPreset () {};
+  void mouseDown(const MouseEvent &e) override;
+
+};
+
+class GridPopupMenuScene : public GridPopupMenu
+{
+public:
+  GridPopupMenuScene () {};
+  void mouseDown(const MouseEvent &e) override;
+
+};
 
 class GridWindow  : public Component, 
                     public juce::Button::Listener
@@ -147,6 +182,7 @@ public:
 
   void updateGridItems(bool presetMode);
   void setGridDisplayMode (bool presetMode);
+  void triggerGridItem (int number);
   void static toggleGridDisplayMode();
 
   std::unique_ptr<GridSelectorMain> grid;
@@ -158,6 +194,8 @@ public:
   std::unique_ptr<ShapeButton> preferencesCloseButton;
   std::unique_ptr<ShapeButton> closeButton;
   std::unique_ptr<ShapeButton> backButton;
+  std::unique_ptr<GridPopupMenuPreset> prefOnSelectionPresetMenu;
+  std::unique_ptr<GridPopupMenuScene> prefOnSelectionSceneMenu;
 
   static GridWindow* gridWindow;
   int gridItemWidthCount = GRID_COLUMNS_DEFAULT;
@@ -178,6 +216,7 @@ private:
   void updateGrid();
 
   int gridDirectSelect(int index);
+  void updateDirectSelectLabel();
   std::unique_ptr<GridTimer> gridTimer;
   //int gridStartIndex = 0; moving to public for testing
   OwnedArray<GridSelectorItem> gridItems;
@@ -192,10 +231,12 @@ private:
   std::unique_ptr<GridPreferenceDownButton> gridBankRowDownButton;
   std::unique_ptr<GridPreferenceUpButton> gridDirectSelectUpButton;
   std::unique_ptr<GridPreferenceDownButton> gridDirectSelectDownButton;
+
   //std::unique_ptr<DrawableButton> prefToggleLatchingSwitches;
   std::unique_ptr<DrawableButton> prefToggleCloseOnSelect;
   std::unique_ptr<DrawableButton> prefToggleDisplaySceneNameInTitle;
   std::unique_ptr<DrawableButton> prefToggleDisplayZeroBasedNumbers;
+  
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GridWindow)
 };

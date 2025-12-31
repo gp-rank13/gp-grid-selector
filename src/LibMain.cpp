@@ -1,5 +1,4 @@
 // Grid extension for Gig Performer by @rank13
-
 #include "LibMain.h"
 #include "Panel.h"
 

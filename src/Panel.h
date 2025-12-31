@@ -207,7 +207,7 @@ std::vector<std::string> panelXML = {
 "          directedOSCIPAddress=\"\" directedOSCPort=\"9001\" directedOSCTargetName=\"\""
 "          widgetDirectedOSCType=\"0\" widgetDirectedMinIntValue=\"0\" widgetDirectedMaxIntValue=\"127\""
 "          widgetDirectedMinDoubleValue=\"0.0\" widgetDirectedMaxDoubleValue=\"1.0\""
-"          widgetDirectedStringListValue=\"T2ZmCk9u\" widgetHandle=\"\" enableOSC=\"0\""
+"          widgetDirectedStringListValue=\"T2ZmCk9u\" widgetHandle=\"GPGS_DIRECT_SELECT_LABEL\" enableOSC=\"0\""
 "          invertOSC=\"0\" groupName=\"\" widgetMoveBehavior=\"0\" updateOnLoadGig=\"0\""
 "          updateOnActivateRackspace=\"0\" setDefaultDoubleClickResetValue=\"0.0\""
 "          globalAssignedParameterNumber=\"-1\" bckgColor=\"ff3c3c3c\" outlineColor=\"808080\""

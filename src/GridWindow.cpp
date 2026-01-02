@@ -429,7 +429,6 @@ void GridWindow::setGridDuration(int ms)
 void GridWindow::buttonClicked (Button* buttonThatWasClicked)
 {
     if (buttonThatWasClicked == closeButton.get()) {
-        //setVisible(false);
         gridMenu->setVisible(false);
         preferencesButton->setToggleState(false, juce::NotificationType::dontSendNotification);
         LibMain::lib->setWidgetValue("GPGS_DISPLAY", 0.0);
@@ -491,77 +490,31 @@ void GridWindow::presetChanged(int index, StringArray names) {
     if (gridWindow == nullptr) return;
     if (gridWindow->grid == nullptr) return;
     MessageManager::getInstance()->callAsync([index, names]() {
-        //gridWindow->gridPresetMode = true;
         gridWindow->presetNames.clear();
         gridWindow->presetNames.addArray(names);
         gridWindow->presetIndex = index;
         gridWindow->sceneGridStartIndex = 0;
         gridWindow->setGridDisplayMode(gridWindow->gridPresetMode);
-        /*
-        if (gridWindow->gridPresetMode) {
-            //gridWindow->updateGridItems(true);
-            gridWindow->setGridDisplayMode(true);
-        } else {
-            //gridWindow->sceneChanged(LibMain::lib->getCurrentSongpartIndex(),LibMain::lib->getSongPartNames(index));
-        }
-        */
-        /*
-        gridWindow->gridItems.clear();
-        gridWindow->grid->removeAllChildren();
-        
-        for (int i = 0; i < names.size(); ++i) { 
-            GridSelectorItem* gsi = new GridSelectorItem();
-            gsi->number = i;
-            gsi->name = names[i];
-            gsi->selected = i == index;
-
-            gridWindow->gridItems.add(gsi);
-            gridWindow->grid->addAndMakeVisible(gsi);
-        }
-        titleChanged(index, names[index]);
-        gridWindow->updateGrid();
-        gridWindow->resized();
-        */
     });
 }
 
 void GridWindow::sceneChanged(int index, StringArray names) {
     if (gridWindow == nullptr) return;
     if (gridWindow->grid == nullptr) return;
-    //if (gridWindow->gridPresetMode) return;
     MessageManager::getInstance()->callAsync([index, names]() {
-        //gridWindow->gridPresetMode = true;
         gridWindow->sceneNames.clear();
         gridWindow->sceneNames.addArray(names);
         gridWindow->sceneIndex = index;
-        if (!gridWindow->gridPresetMode)
-            //gridWindow->updateGridItems(false);
+        if (!gridWindow->gridPresetMode) {
             gridWindow->setGridDisplayMode(false);
-        gridWindow->gridTitle->repaint();
-        /*
-        gridWindow->gridItems.clear();
-        gridWindow->grid->removeAllChildren();
-        
-        for (int i = 0; i < names.size(); ++i) { 
-            GridSelectorItem* gsi = new GridSelectorItem();
-            gsi->number = i;
-            gsi->name = names[i];
-            gsi->selected = i == index;
-
-            gridWindow->gridItems.add(gsi);
-            gridWindow->grid->addAndMakeVisible(gsi);
         }
-        titleChanged(presetIndex, presetName);
-        gridWindow->updateGrid();
-        gridWindow->resized();
-        */
+        gridWindow->gridTitle->repaint();
     });
 }
 
 void GridWindow::titleChanged(int index, String name) {
     gridWindow->gridTitle->number = index;
-    //gridWindow->gridTitle->name = name;
-    gridWindow->gridTitle->name = LibMain::lib->getPathToMe();
+    gridWindow->gridTitle->name = name;
     gridWindow->gridTitle->repaint();
 }
 

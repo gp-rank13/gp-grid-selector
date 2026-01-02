@@ -38,7 +38,9 @@ protected:
 
 public:
     // These must be here but no need to do anything unless you want extra behavior
-     LibMain(LibraryHandle handle) : GigPerformerAPI(handle) {}
+     LibMain(LibraryHandle handle) : GigPerformerAPI(handle) {
+        lib = this;
+     }
     virtual ~LibMain() {}
         
     void OnOpen() override
@@ -59,6 +61,7 @@ public:
     void OnRackspaceActivated() override;
     void OnVariationChanged(int oldIndex, int newIndex) override;
     void OnWidgetValueChanged(const std::string &widgetName, double newValue) override;  
+    void OnTunerModeChanged(bool visible) override;
 
     void Initialization() override
     {
@@ -73,6 +76,7 @@ public:
         registerCallback("OnVariationChanged");
         registerCallback("OnModeChanged");
         registerCallback("OnWidgetValueChanged");
+        registerCallback("OnTunerModeChanged");
 
         listenForWidget("GPGS_DISPLAY", true);
         listenForWidget("GPGS_MODE", true);
@@ -87,6 +91,8 @@ public:
     StringArray getSongPartNames(int songIndex);
     StringArray getRackspaceNames();
     StringArray getVariationNames(int rackspaceIndex);
+
+    static LibMain* lib;
 
 private:
 

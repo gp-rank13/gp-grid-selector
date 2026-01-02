@@ -179,11 +179,17 @@ public:
   void static directSelect(String name);
   void static gridBank(bool down);
   void static songRackspaceModeChanged();
+  void static toggleGridDisplayMode();
+  void static tunerDisplayChanged(bool visible);
+  void static readDataFile();
+  void static saveDataFile();
 
   void updateGridItems(bool presetMode);
   void setGridDisplayMode (bool presetMode);
   void triggerGridItem (int number);
-  void static toggleGridDisplayMode();
+  void readPreferences();
+  void savePreferences();
+  
 
   std::unique_ptr<GridSelectorMain> grid;
   std::unique_ptr<GridSelectorTitle> gridTitle;
@@ -201,8 +207,8 @@ public:
   int gridItemWidthCount = GRID_COLUMNS_DEFAULT;
   int gridItemHeightCount = GRID_ROWS_DEFAULT;
   int directSelectCount = GRID_DIRECT_SELECT_DEFAULT;
-  int gridBankRowCount = 1;
-  bool gridCloseOnItemSelect = false;
+  int gridBankRowCount = GRID_BANK_ROWS_DEFAULT;
+  //bool gridCloseOnItemSelect = false;
   bool gridDisplaySceneNameInTitle = false;
   bool gridDisplayZeroBasedNumbers = false;
   bool gridPresetMode = true;
@@ -217,11 +223,13 @@ private:
 
   int gridDirectSelect(int index);
   void updateDirectSelectLabel();
+  ValueTree setPreferenceDefaults();
   std::unique_ptr<GridTimer> gridTimer;
   //int gridStartIndex = 0; moving to public for testing
   OwnedArray<GridSelectorItem> gridItems;
   StringArray presetNames;
   StringArray sceneNames;
+  ValueTree preferences;
 
   std::unique_ptr<GridPreferenceUpButton> gridColumnUpButton;
   std::unique_ptr<GridPreferenceDownButton> gridColumnDownButton;
@@ -233,7 +241,7 @@ private:
   std::unique_ptr<GridPreferenceDownButton> gridDirectSelectDownButton;
 
   //std::unique_ptr<DrawableButton> prefToggleLatchingSwitches;
-  std::unique_ptr<DrawableButton> prefToggleCloseOnSelect;
+  //std::unique_ptr<DrawableButton> prefToggleCloseOnSelect;
   std::unique_ptr<DrawableButton> prefToggleDisplaySceneNameInTitle;
   std::unique_ptr<DrawableButton> prefToggleDisplayZeroBasedNumbers;
   

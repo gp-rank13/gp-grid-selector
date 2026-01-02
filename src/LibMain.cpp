@@ -13,6 +13,7 @@ namespace gigperformer {
 // *** Global Variables *** 
 bool isGigFileLoading = false;
 bool isSetlistMode = false;
+bool selectorDisplayedWhenTunerActivated = false;
 //int directSelectCount = 4;
 std::string Grid_Text = "GP Grid";
 int Grid_Duration = -1;
@@ -136,6 +137,17 @@ void LibMain::OnWidgetValueChanged(const std::string& widgetName, double newValu
          GridWindow::directSelect((String)widgetName);
       }
     }
+}
+
+void LibMain::OnTunerModeChanged(bool visible) {
+   //GridWindow::tunerDisplayChanged(visible);
+   if (visible) {
+      selectorDisplayedWhenTunerActivated = getWidgetValue("GPGS_DISPLAY") == 1.0;
+      setWidgetValue("GPGS_DISPLAY", 0.0);
+   } else {
+      setWidgetValue("GPGS_DISPLAY", selectorDisplayedWhenTunerActivated ? 1.0 : 0.0);
+      selectorDisplayedWhenTunerActivated = false;
+   }
 }
 
 StringArray LibMain::getSongNames() {

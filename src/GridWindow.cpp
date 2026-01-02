@@ -560,7 +560,8 @@ void GridWindow::sceneChanged(int index, StringArray names) {
 
 void GridWindow::titleChanged(int index, String name) {
     gridWindow->gridTitle->number = index;
-    gridWindow->gridTitle->name = name;
+    //gridWindow->gridTitle->name = name;
+    gridWindow->gridTitle->name = LibMain::lib->getPathToMe();
     gridWindow->gridTitle->repaint();
 }
 

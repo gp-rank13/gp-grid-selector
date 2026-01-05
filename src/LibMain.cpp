@@ -136,7 +136,9 @@ void LibMain::OnWidgetValueChanged(const std::string& widgetName, double newValu
       if (newValue == 1.0) {
          GridWindow::directSelect((String)widgetName);
       }
-    }
+    } else if (widgetName.starts_with("GPGS_GW") || widgetName.starts_with("GPGS_W")) {
+         GridWindow::stompChanged();   
+    } 
 }
 
 void LibMain::OnTunerModeChanged(bool visible) {

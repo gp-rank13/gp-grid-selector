@@ -175,8 +175,10 @@ public:
   void static setGridNamedPositionSize(std::string positionName, int width, int height);
   void static presetChanged(int index, StringArray names);
   void static sceneChanged(int index, StringArray names);
+  void static stompChanged();
   void static titleChanged(int index, String name);
   void static directSelect(String name);
+  void static directSelectWidget(String name);
   void static gridBank(bool down);
   void static songRackspaceModeChanged();
   void static toggleGridDisplayMode();
@@ -184,8 +186,8 @@ public:
   void static readDataFile();
   void static saveDataFile();
 
-  void updateGridItems(bool presetMode);
-  void setGridDisplayMode (bool presetMode);
+  void updateGridItems(modes presetMode);
+  void setGridDisplayMode (modes presetMode);
   void triggerGridItem (int number);
   void readPreferences();
   void savePreferences();
@@ -211,24 +213,49 @@ public:
   //bool gridCloseOnItemSelect = false;
   bool gridDisplaySceneNameInTitle = false;
   bool gridDisplayZeroBasedNumbers = false;
-  bool gridPresetMode = true;
+  Colour prefSongColour;
+  Colour prefSongpartColour;
+  Colour prefRackspaceColour;
+  Colour prefVariationColour;
+  Colour prefWidgetColour;
+  //bool gridPresetMode = true;
+  modes gridPresetMode = Mode_presets;
   int gridStartIndex = 0;
   int presetIndex = 0;
   int presetGridStartIndex = 0;
   int sceneIndex = 0;
   int sceneGridStartIndex = 0;
+  int stompGridStartIndex = 0;
+  bool toggleModeDirectionDown = true;
+  bool stompsExist = false;
+  Path globeIcon;
+
+  struct widget {
+    String handle;
+    String name;
+    bool isActive;
+    bool isGlobal;
+  };
+
+  Array<widget> stomps;
+  CachedValue<var> cachedGridItemWidthCount;
 
 private:
   void updateGrid();
 
   int gridDirectSelect(int index);
   void updateDirectSelectLabel();
+  void refreshStompList();
+  StringArray getWidgetList(bool isGlobal);
   ValueTree setPreferenceDefaults();
   std::unique_ptr<GridTimer> gridTimer;
   //int gridStartIndex = 0; moving to public for testing
   OwnedArray<GridSelectorItem> gridItems;
   StringArray presetNames;
   StringArray sceneNames;
+  StringArray stompNames;
+  StringArray stompHandles;
+  Array<bool> stompStates;
   ValueTree preferences;
 
   std::unique_ptr<GridPreferenceUpButton> gridColumnUpButton;
@@ -244,7 +271,6 @@ private:
   //std::unique_ptr<DrawableButton> prefToggleCloseOnSelect;
   std::unique_ptr<DrawableButton> prefToggleDisplaySceneNameInTitle;
   std::unique_ptr<DrawableButton> prefToggleDisplayZeroBasedNumbers;
-  
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GridWindow)
 };

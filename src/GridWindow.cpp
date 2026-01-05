@@ -64,6 +64,8 @@ GridWindow::GridWindow ()
     backButton->addListener (this);
     addChildComponent (backButton.get());
 
+    globeIcon.loadPathFromData (globePath, sizeof (globePath));
+
     preferencesCloseButton.reset (new ShapeButton ( "prefsCloseButton", Colours::lightgrey, Colours::grey, Colours::darkgrey ));
     preferencesCloseButton->setShape (p2, true, true, false);
     preferencesCloseButton->setClickingTogglesState(false);
@@ -434,7 +436,7 @@ void GridWindow::buttonClicked (Button* buttonThatWasClicked)
         LibMain::lib->setWidgetValue("GPGS_DISPLAY", 0.0);
         hideGrid();
     } else if (buttonThatWasClicked == backButton.get()) {
-        setGridDisplayMode(true);
+        setGridDisplayMode(gridPresetMode == Mode_stomps ? Mode_scenes : Mode_presets);
     } else if (buttonThatWasClicked == preferencesButton.get()) {
         gridMenu->setVisible(buttonThatWasClicked->getToggleState());
         if (!buttonThatWasClicked->getToggleState()) {
@@ -494,7 +496,8 @@ void GridWindow::presetChanged(int index, StringArray names) {
         gridWindow->presetNames.addArray(names);
         gridWindow->presetIndex = index;
         gridWindow->sceneGridStartIndex = 0;
-        gridWindow->setGridDisplayMode(gridWindow->gridPresetMode);
+        gridWindow->stompGridStartIndex = 0;
+        gridWindow->setGridDisplayMode(Mode_presets);
     });
 }
 
@@ -505,10 +508,22 @@ void GridWindow::sceneChanged(int index, StringArray names) {
         gridWindow->sceneNames.clear();
         gridWindow->sceneNames.addArray(names);
         gridWindow->sceneIndex = index;
-        if (!gridWindow->gridPresetMode) {
-            gridWindow->setGridDisplayMode(false);
+        gridWindow->stompGridStartIndex = 0;
+        if (gridWindow->gridPresetMode == Mode_scenes) {
+            gridWindow->setGridDisplayMode(Mode_scenes);
+        } else if (gridWindow->gridPresetMode == Mode_stomps) {
+            gridWindow->setGridDisplayMode(Mode_stomps);
         }
         gridWindow->gridTitle->repaint();
+    });
+}
+
+void GridWindow::stompChanged() {
+    MessageManager::getInstance()->callAsync([]() {
+        if (gridWindow->gridPresetMode == Mode_stomps) {
+            //gridWindow->setGridDisplayMode(Mode_stomps);
+            gridWindow->updateGridItems(Mode_stomps);
+        }
     });
 }
 
@@ -561,29 +576,42 @@ void GridWindow::gridBank(bool down) {
     });
 }
 
-void GridWindow::updateGridItems(bool presetMode) {
+void GridWindow::updateGridItems(modes presetMode) {
 
     gridWindow->gridItems.clear();
     gridWindow->grid->removeAllChildren();
-    StringArray names = presetMode ? gridWindow->presetNames : gridWindow->sceneNames;
-    int index = presetMode ? gridWindow->presetIndex : gridWindow->sceneIndex;
+    StringArray names = presetMode == Mode_presets ? gridWindow->presetNames : gridWindow->sceneNames;
+    int index = presetMode == Mode_presets ? gridWindow->presetIndex : gridWindow->sceneIndex;
 
-    if (!presetMode) {
+    if (presetMode == Mode_scenes) {
         //gridWindow->sceneChanged(LibMain::lib->getCurrentSongpartIndex(),LibMain::lib->getSongPartNames(gridWindow->presetIndex));
         gridWindow->sceneIndex = LibMain::lib->inSetlistMode() ? LibMain::lib->getCurrentSongpartIndex() : LibMain::lib->getCurrentVariationIndex();
         gridWindow->sceneNames = LibMain::lib->inSetlistMode() ? LibMain::lib->getSongPartNames(gridWindow->presetIndex) : LibMain::lib->getVariationNames(gridWindow->presetIndex);
         names = gridWindow->sceneNames;
         index = gridWindow->sceneIndex;
-    }
+    } 
     
-    for (int i = 0; i < names.size(); ++i) { 
-        GridSelectorItem* gsi = new GridSelectorItem();
-        gsi->number = i;
-        gsi->name = names[i];
-        gsi->selected = i == index;
+    if (presetMode != Mode_stomps) {
+        for (int i = 0; i < names.size(); ++i) { 
+            GridSelectorItem* gsi = new GridSelectorItem();
+            gsi->number = i;
+            gsi->name = names[i];
+            gsi->selected = i == index;
 
-        gridWindow->gridItems.add(gsi);
-        gridWindow->grid->addAndMakeVisible(gsi);
+            gridWindow->gridItems.add(gsi);
+            gridWindow->grid->addAndMakeVisible(gsi);
+        }
+    } else {
+        refreshStompList();
+        for (int i = 0; i < gridWindow->stomps.size(); ++i) { 
+            GridSelectorItem* gsi = new GridSelectorItem();
+            gsi->number = i;
+            gsi->name = stomps[i].name;
+            gsi->selected = stomps[i].isActive;
+
+            gridWindow->gridItems.add(gsi);
+            gridWindow->grid->addAndMakeVisible(gsi);
+        }
     }
     titleChanged(presetIndex, presetNames[presetIndex]);
     gridWindow->updateGrid();
@@ -631,80 +659,191 @@ void GridWindow::directSelect(String name) {
 
 void GridWindow::updateDirectSelectLabel() {
     String label = LibMain::lib->inSetlistMode() ? "Songs" : "Rackspaces";
-    if (!gridWindow->gridPresetMode) {
+    if (gridWindow->gridPresetMode == Mode_scenes) {
         label = LibMain::lib->inSetlistMode() ? "Song Parts" : "Variations";
+    } else if (gridWindow->gridPresetMode == Mode_stomps) {
+        label = "Widgets";
     }
     LibMain::lib->setWidgetCaption("GPGS_DIRECT_SELECT_LABEL","Direct Select - " + label.toStdString());
 }
+/*
+void GridWindow::directSelectWidget(String name) {
+    MessageManager::getInstance()->callAsync([name]() {
+        // Extract direct select number from name
+        int directSelectNumber = name.getTrailingIntValue();
+        for (int i = gridWindow->gridStartIndex; i < gridWindow->gridItems.size(); ++i) { 
+            if (gridWindow->gridItems[i]->directSelectNumber == directSelectNumber) {
+                gridWindow->triggerGridItem(gridWindow->gridItems[i]->number);
+            }
+        }
+    });
+}
+*/
 
-void GridWindow::setGridDisplayMode (bool presetMode) {
-    // Store current bank/grid item starting inde
-    if (gridPresetMode) {
-        presetGridStartIndex = gridStartIndex;
-    } else {
-        sceneGridStartIndex = gridStartIndex;
+StringArray GridWindow::getWidgetList(bool isGlobal) {
+    StringArray widgetList;
+    std::vector<std::string> list;
+    LibMain::lib->getWidgetList(list, isGlobal);
+    for (int i = 0; i < static_cast<int>(list.size()); ++i) {
+        String widget = list[i];
+        String widgetName = widget.fromLastOccurrenceOf(":", false, true);
+        if (widgetName.startsWith("GPGS_W") || widgetName.startsWith("GPGS_GW")) {
+            widgetList.add(widgetName);
+        }
+        if (!LibMain::lib->listeningForWidget(widgetName.toStdString())) {
+            LibMain::lib->listenForWidget(widgetName.toStdString(),true);
+        }
     }
-    backButton->setVisible(!presetMode);
+    widgetList.sort(true);
+    return widgetList;
+}
+
+void GridWindow::refreshStompList() {
+    
+    gridWindow->stomps.clear();
+
+    // Local widgets
+    StringArray localWidgets = getWidgetList(false);
+    for (int i = 0; i < localWidgets.size(); ++i) {
+        widget localWidget;
+        std::string handle = localWidgets[i].toStdString();
+        localWidget.handle = localWidgets[i];
+        localWidget.name = LibMain::lib->getWidgetCaption(handle);
+        localWidget.isActive = LibMain::lib->getWidgetValue(handle) == 1.0;
+        localWidget.isGlobal = false;
+        gridWindow->stomps.add(localWidget);
+    }
+
+    // Global widgets
+    StringArray globalWidgets = getWidgetList(true);
+    for (int i = 0; i < globalWidgets.size(); ++i) {
+        widget globalWidget;
+        std::string handle = globalWidgets[i].toStdString();
+        globalWidget.handle = globalWidgets[i];
+        globalWidget.name = LibMain::lib->getWidgetCaption(handle);
+        globalWidget.isActive = LibMain::lib->getWidgetValue(handle) == 1.0;
+        globalWidget.isGlobal = true;
+        gridWindow->stomps.add(globalWidget);
+    }
+    gridWindow->stompsExist = stomps.size() > 0;
+}
+
+void GridWindow::setGridDisplayMode (modes presetMode) {
+    gridWindow->refreshStompList();
+    if (presetMode == Mode_stomps && !stompsExist) {
+        toggleModeDirectionDown = false;
+        // If currently in stomp mode and no stomps exist, then switch to scene mode
+        if (gridPresetMode == Mode_stomps) {
+            presetMode = Mode_scenes;
+        } else {
+            return;
+        }
+    }
+    // Store current bank/grid item starting index
+    if (gridPresetMode == Mode_presets) {
+        presetGridStartIndex = gridStartIndex;
+        toggleModeDirectionDown = true;
+    } else if (gridPresetMode == Mode_scenes) {
+        sceneGridStartIndex = gridStartIndex;
+    } else {
+        stompGridStartIndex = gridStartIndex;
+        toggleModeDirectionDown = false;
+    }
+    // Update starting index based on new mode
+    if (presetMode == Mode_presets) {
+        gridStartIndex = presetGridStartIndex;
+    } else if (presetMode == Mode_scenes) {
+        gridStartIndex = sceneGridStartIndex;
+    } else if (presetMode == Mode_stomps) {
+        if (!stompsExist) return;
+        gridStartIndex = stompGridStartIndex;
+    } else {
+        gridStartIndex = 0;
+    }
+    backButton->setVisible(presetMode != Mode_presets);
     gridPresetMode = presetMode;
-    gridStartIndex = presetMode ? presetGridStartIndex : sceneGridStartIndex;
     updateGridItems(presetMode);
     updateDirectSelectLabel();
 }
 
 void GridWindow::toggleGridDisplayMode() {
-    if (!gridWindow->isVisible()) {
-        LibMain::lib->setWidgetValue("GPGS_DISPLAY", 1.0);
-        //gridWindow->setVisible(true);
-        
-    } else if (gridWindow->gridPresetMode) {
-        gridWindow->setGridDisplayMode(false);
-    } else {
-        gridWindow->setGridDisplayMode(true);
-    }
+    MessageManager::getInstance()->callAsync([]() {
+        if (!gridWindow->isVisible()) {
+            LibMain::lib->setWidgetValue("GPGS_DISPLAY", 1.0);        
+        } else if (gridWindow->gridPresetMode == Mode_presets) {
+            gridWindow->setGridDisplayMode(Mode_scenes);
+        } else if (gridWindow->gridPresetMode == Mode_scenes) {
+            if (!gridWindow->stompsExist && gridWindow->toggleModeDirectionDown) {
+                gridWindow->toggleModeDirectionDown = false;
+            }
+            gridWindow->setGridDisplayMode(gridWindow->toggleModeDirectionDown ? Mode_stomps : Mode_presets);
+        } else if (gridWindow->gridPresetMode == Mode_stomps){
+            gridWindow->setGridDisplayMode(Mode_scenes);
+        }
+    });
 }
 
 void GridWindow::triggerGridItem (int number) {
-    if (gridWindow->gridPresetMode) {
-        int onSelectionAction = gridWindow->prefOnSelectionPresetMenu->selectedItem;
-        if (onSelectionAction == 1) {
-            if (gridWindow->presetIndex == number) {
-                gridWindow->setGridDisplayMode(false);
-            }  else {
-                if (LibMain::lib->inSetlistMode()) {
-                    (void)LibMain::lib->switchToSong(number, 0);
-                } else {
-                    (void)LibMain::lib->switchToRackspace(number, 0);
-                }
-                juce::Timer::callAfterDelay (GRID_CLOSE_DELAY_MS,[]() {
-                    gridWindow->setGridDisplayMode(false);
-                });
-            }
-        } else if (onSelectionAction >= 2) {
+    // Preset Mode
+    if (gridWindow->gridPresetMode == Mode_presets) {
+        // If triggering the already active item, drill down to next view
+        if (gridWindow->presetIndex == number) {
+            gridWindow->setGridDisplayMode(Mode_scenes);
+        } else {
+            // Select song or rackspacce
             if (LibMain::lib->inSetlistMode()) {
-                (void)LibMain::lib->switchToSong(number, 0);
+                    (void)LibMain::lib->switchToSong(number, 0);
             } else {
                 (void)LibMain::lib->switchToRackspace(number, 0);
             }
-            if (onSelectionAction == 2) {
+            // Perform the 'On Selection' action
+            int onSelectionAction = gridWindow->prefOnSelectionPresetMenu->selectedItem;
+            if (onSelectionAction == Preset_displayPartsVariations) {
+                juce::Timer::callAfterDelay (GRID_CLOSE_DELAY_MS,[]() {
+                    gridWindow->setGridDisplayMode(Mode_scenes);
+                });
+            } else if (onSelectionAction == Preset_displayWidgets) {
+                juce::Timer::callAfterDelay (GRID_CLOSE_DELAY_MS,[]() {
+                    gridWindow->setGridDisplayMode(Mode_stomps);
+                });
+            } else if (onSelectionAction == Preset_closeSelector) {
                 juce::Timer::callAfterDelay (GRID_CLOSE_DELAY_MS,[]() {
                         hideGrid();
                         LibMain::lib->setWidgetValue("GPGS_DISPLAY", 0.0);
                 });
             }
         }
-    } else {
-        int onSelectionAction = gridWindow->prefOnSelectionSceneMenu->selectedItem;
-        if (LibMain::lib->inSetlistMode()) {
-            (void)LibMain::lib->switchToSongPart(number);
+    } 
+    // Scene Mode
+    else if (gridWindow->gridPresetMode == Mode_scenes) {
+        // If triggering the already active item, drill down to next view
+        if (gridWindow->sceneIndex == number) {
+            gridWindow->setGridDisplayMode(Mode_stomps);
         } else {
-            (void)LibMain::lib->switchToVariation(number);
+            // Select song part or variation
+            if (LibMain::lib->inSetlistMode()) {
+                (void)LibMain::lib->switchToSongPart(number);
+            } else {
+                (void)LibMain::lib->switchToVariation(number);
+            }
+            // Perform the 'On Selection' action
+            int onSelectionAction = gridWindow->prefOnSelectionSceneMenu->selectedItem;
+            if (onSelectionAction == Scene_displayWidgets) {
+                juce::Timer::callAfterDelay (GRID_CLOSE_DELAY_MS,[]() {
+                    gridWindow->setGridDisplayMode(Mode_stomps);
+                });
+            } else if (onSelectionAction == Scene_closeSelector) {
+                juce::Timer::callAfterDelay (GRID_CLOSE_DELAY_MS,[]() {
+                        hideGrid();
+                        LibMain::lib->setWidgetValue("GPGS_DISPLAY", 0.0);
+                });
+            }
         }
-        if (onSelectionAction == 1) {
-            juce::Timer::callAfterDelay (GRID_CLOSE_DELAY_MS,[]() {
-                    hideGrid();
-                    LibMain::lib->setWidgetValue("GPGS_DISPLAY", 0.0);
-            });
-        }
+    } 
+    // Stomp Mode
+    else if (gridWindow->gridPresetMode == Mode_stomps) {
+        int newValue = gridWindow->stomps[number].isActive ? 0.0 : 1.0;
+        LibMain::lib->setWidgetValue(gridWindow->stomps[number].handle.toStdString(), newValue);
     }
 }
 
@@ -732,19 +871,37 @@ void GridSelectorItem::paint (Graphics& g)
     float cornerSize = 8.f;
     
     // Background
+    Colour backgroundColour;
     if (selected) {
-        g.setColour (Colour(0xff101010));
+        //g.setColour (Colour(0xff101010));
+        if (GridWindow::gridWindow->gridPresetMode == Mode_presets) {
+            backgroundColour = LibMain::lib->inSetlistMode() ? 
+                    GridWindow::gridWindow->prefSongColour
+                    : GridWindow::gridWindow->prefRackspaceColour;
+        } else if (GridWindow::gridWindow->gridPresetMode == Mode_scenes) {
+            backgroundColour = LibMain::lib->inSetlistMode() ? 
+                    GridWindow::gridWindow->prefSongpartColour
+                    : GridWindow::gridWindow->prefVariationColour;
+        } else if (GridWindow::gridWindow->gridPresetMode == Mode_stomps) {
+            String customColour = GridWindow::gridWindow->stomps[number].handle.fromLastOccurrenceOf("_", false, true);
+            if (customColour.length() == 8) {
+                backgroundColour = Colour::fromString(customColour);
+            } else {
+                backgroundColour = GridWindow::gridWindow->prefWidgetColour;
+            }
+        }
     } else if (hover) {
-        g.setColour (Colour(0xff303030));
+        backgroundColour = Colour(0xff303030);
     } else {
-        g.setColour (Colour(0xff252525));
+        backgroundColour = Colour(0xff252525);
     }
+    g.setColour(backgroundColour);
     g.fillRoundedRectangle (area, cornerSize);
     
     // Border
     if (selected) {
-        g.setColour (Colours::white);
-        g.drawRoundedRectangle(area, cornerSize, 5.f);
+        g.setColour(backgroundColour.withMultipliedLightness(0.6f));
+        g.drawRoundedRectangle(area, cornerSize, 2.f);
     } else {
         g.setColour (Colour(0xff404040));
         g.drawRoundedRectangle(area, cornerSize, 1.f);
@@ -764,16 +921,39 @@ void GridSelectorItem::paint (Graphics& g)
     }
     int displayLines = ratio > 1.5f ? 3 : 2;
     g.setFont (font);
-    g.setColour (Colours::white);
+    // Determine font colour
+    float luminance = (0.299f * backgroundColour.getFloatRed()) + 
+                  (0.587f * backgroundColour.getFloatGreen()) + 
+                  (0.114f * backgroundColour.getFloatBlue());
+
+    // If luminance > 0.5, the background is light; use black text. Otherwise, use white.
+    auto fontColour = luminance > 0.5f ? juce::Colours::black : juce::Colours::white;
+
+    g.setColour (fontColour);
     g.drawFittedText (name,
                         getLocalBounds().reduced (20, 0),
                         Justification::centred, displayLines, 1.f);
     // Number
-    g.setColour (Colour(0xff606060));
+    if (selected) {
+        g.setColour(backgroundColour.withMultipliedLightness(1.5f));
+    } else {
+        g.setColour(Colour(0xff606060));
+    }
+    
     int displayNumber = GridWindow::gridWindow->gridDisplayZeroBasedNumbers ? number : number + 1;
-    g.drawFittedText (String(displayNumber),
-                        getLocalBounds().reduced (25, 15),
-                        Justification::topLeft, 1, 1.f);
+    bool displayGlobal = GridWindow::gridWindow->stomps[number].isGlobal;
+    //String displayGlobal = GridWindow::gridWindow->stomps[number].isGlobal ? "G" : "";
+    //String label = GridWindow::gridWindow->gridPresetMode == Mode_stomps ? displayGlobal : (String)displayNumber;
+    if (GridWindow::gridWindow->gridPresetMode == Mode_stomps && displayGlobal) {
+        GridWindow::gridWindow->globeIcon.scaleToFit(25.f, 20.f, font.getHeight() * 0.8f, font.getHeight() * 0.8f, true);
+        g.fillPath(GridWindow::gridWindow->globeIcon);
+    } else if (GridWindow::gridWindow->gridPresetMode != Mode_stomps) {
+        g.drawFittedText ((String(displayNumber)),
+                            getLocalBounds().reduced (25, 15),
+                            Justification::topLeft, 1, 1.f);
+        
+    }
+
     // Direct Select Number
     fontHeight = font.getHeight();
     if (directSelectNumber >= 1 ) {
@@ -786,11 +966,7 @@ void GridSelectorItem::paint (Graphics& g)
         g.fillRoundedRectangle(newArea, cornerSize);
         
         //Border
-        if (LibMain::lib->inSetlistMode()) {
-            g.setColour (Colour(0xfff2924f));
-        } else {
-            g.setColour (Colour(0xff3d6e31));
-        }
+        g.setColour(backgroundColour.withMultipliedLightness(1.5f));
         g.drawRoundedRectangle(newArea, cornerSize, 1.f);
         
         // Number
@@ -915,6 +1091,7 @@ void GridPopupMenuPreset::mouseDown(const MouseEvent&) {
     juce::PopupMenu menu;
     menu.setLookAndFeel(popupLNF);
     menu.addItem (1, ON_SELECTION_MENU_PRESETS[0]);
+    menu.addItem (4, ON_SELECTION_MENU_PRESETS[3]);
     menu.addItem (2, ON_SELECTION_MENU_PRESETS[1]);
     menu.addItem (3, ON_SELECTION_MENU_PRESETS[2]);
 
@@ -939,6 +1116,10 @@ void GridPopupMenuPreset::mouseDown(const MouseEvent&) {
                 selectedItemText = ON_SELECTION_MENU_PRESETS[2];
                 selectedItem = Preset_noAction;
                 break;
+            case 4:
+                selectedItemText = ON_SELECTION_MENU_PRESETS[3];
+                selectedItem = Preset_displayWidgets;
+                break;
             default:
                 break;
         }
@@ -949,6 +1130,7 @@ void GridPopupMenuPreset::mouseDown(const MouseEvent&) {
 void GridPopupMenuScene::mouseDown(const MouseEvent&) {
     juce::PopupMenu menu;
     menu.setLookAndFeel(popupLNF);
+    menu.addItem (3, ON_SELECTION_MENU_SCENES[2]);
     menu.addItem (1, ON_SELECTION_MENU_SCENES[0]);
     menu.addItem (2, ON_SELECTION_MENU_SCENES[1]);
 
@@ -968,6 +1150,10 @@ void GridPopupMenuScene::mouseDown(const MouseEvent&) {
             case 2:
                 selectedItemText = ON_SELECTION_MENU_SCENES[1];
                 selectedItem = Scene_noAction;
+                break;
+            case 3:
+                selectedItemText = ON_SELECTION_MENU_SCENES[2];
+                selectedItem = Scene_displayWidgets;
                 break;
             default:
                 break;
@@ -1036,10 +1222,12 @@ void GridSelectorTitle::paint (Graphics& g)
                         Justification::left, 1, 1.f);
     
     // Line highlight
-    if (LibMain::lib->inSetlistMode()) {
-        g.setColour (Colour(0xfff2924f));
-    } else {
-        g.setColour (Colour(0xff3d6e31));
+    if (GridWindow::gridWindow->gridPresetMode == Mode_presets) {
+        g.setColour (LibMain::lib->inSetlistMode() ? GridWindow::gridWindow->prefSongColour : GridWindow::gridWindow->prefRackspaceColour);
+    } else if (GridWindow::gridWindow->gridPresetMode == Mode_scenes) {
+        g.setColour (LibMain::lib->inSetlistMode() ? GridWindow::gridWindow->prefSongpartColour : GridWindow::gridWindow->prefVariationColour);
+    } else if (GridWindow::gridWindow->gridPresetMode == Mode_stomps) {
+         g.setColour (GridWindow::gridWindow->prefWidgetColour);
     }
     g.fillRect(0, getHeight() - 2, getWidth(), 2);
 }
@@ -1284,16 +1472,87 @@ ValueTree GridWindow::setPreferenceDefaults() {
 
 void GridWindow::readPreferences() {
     readDataFile();
-    gridItemWidthCount = preferences.getChildWithName("Grid").getProperty("columns");
-    gridItemHeightCount = preferences.getChildWithName("Grid").getProperty("rows");
-    gridBankRowCount = preferences.getChildWithName("Grid").getProperty("bankRows");
-    directSelectCount = preferences.getChildWithName("DirectSelect").getProperty("count");
-    gridDisplayZeroBasedNumbers = preferences.getChildWithName("Display").getProperty("zeroBasedNumbers");
-    gridDisplaySceneNameInTitle = preferences.getChildWithName("Display").getProperty("sceneNameInHeader");
-    
-    prefOnSelectionPresetMenu->selectedItem = preferences.getChildWithName("Grid").getProperty("onSelectPreset");
-    prefOnSelectionSceneMenu->selectedItem = preferences.getChildWithName("Grid").getProperty("onSelectScene");
 
+    /*
+    // Parse preferences file and populate the default values of any new sections or properties
+    if (!preferences.isValid()){
+        ValueTree extensionData = ValueTree{"ExtensionData", {}};
+        extensionData.setProperty("name", (String)PROJECT_NAME, nullptr);
+        extensionData.setProperty("version", (String)PROJECT_VERSION, nullptr); 
+        preferences = extensionData;
+    }
+    // Grid section
+    ValueTree gridSection = preferences.getChildWithName("Grid");
+    if (!gridSection.isValid()) {
+        preferences.addChild(ValueTree{"Grid", {}}, -1, nullptr);
+    }
+    */
+
+    // Read preferences and populate missing properties with default values
+    //gridItemWidthCount = preferences.getChildWithName("Grid").getProperty("columns");
+    gridItemWidthCount = preferences.getChildWithName("Grid").hasProperty("columns") ? 
+                            preferences.getChildWithName("Grid").getProperty("columns").toString().getIntValue()
+                            : GRID_COLUMNS_DEFAULT;
+    
+    //gridItemHeightCount = preferences.getChildWithName("Grid").getProperty("rows");
+    gridItemHeightCount = preferences.getChildWithName("Grid").hasProperty("rows") ? 
+                            preferences.getChildWithName("Grid").getProperty("rows").toString().getIntValue()
+                            : GRID_ROWS_DEFAULT;
+
+    //gridBankRowCount = preferences.getChildWithName("Grid").getProperty("bankRows");
+    gridBankRowCount = preferences.getChildWithName("Grid").hasProperty("bankRows") ?
+                            preferences.getChildWithName("Grid").getProperty("bankRows").toString().getIntValue()
+                            : GRID_BANK_ROWS_DEFAULT;
+    
+    //prefOnSelectionPresetMenu->selectedItem = preferences.getChildWithName("Grid").getProperty("onSelectPreset")
+    prefOnSelectionPresetMenu->selectedItem = preferences.getChildWithName("Grid").hasProperty("onSelectPreset") ?
+                            preferences.getChildWithName("Grid").getProperty("onSelectPreset").toString().getIntValue()
+                            : Preset_displayPartsVariations;
+
+    //prefOnSelectionSceneMenu->selectedItem = preferences.getChildWithName("Grid").getProperty("onSelectScene");
+    prefOnSelectionSceneMenu->selectedItem = preferences.getChildWithName("Grid").hasProperty("onSelectScene") ?
+                            preferences.getChildWithName("Grid").getProperty("onSelectScene").toString().getIntValue()
+                            : Scene_noAction;
+
+    // Direct Select section
+    //directSelectCount = preferences.getChildWithName("DirectSelect").getProperty("count");
+    directSelectCount = preferences.getChildWithName("DirectSelect").hasProperty("count") ?
+                            preferences.getChildWithName("DirectSelect").getProperty("count").toString().getIntValue()
+                            : GRID_DIRECT_SELECT_DEFAULT;
+    
+    // Display section
+    //gridDisplayZeroBasedNumbers = preferences.getChildWithName("Display").getProperty("zeroBasedNumbers");
+    gridDisplayZeroBasedNumbers = preferences.getChildWithName("Display").hasProperty("zeroBasedNumbers") ?
+                            preferences.getChildWithName("Display").getProperty("zeroBasedNumbers").toString().getIntValue()
+                            : DISPLAY_ZERO_BASED_NUMBERS_DEFAULT;
+
+    //gridDisplaySceneNameInTitle = preferences.getChildWithName("Display").getProperty("sceneNameInHeader");
+    gridDisplaySceneNameInTitle = preferences.getChildWithName("Display").hasProperty("sceneNameInHeader") ?
+                            preferences.getChildWithName("Display").getProperty("sceneNameInHeader").toString().getIntValue()
+                            : DISPLAY_SCENE_NAME_IN_HEADER_DEFAULT;
+
+    prefSongColour = preferences.getChildWithName("Display").hasProperty("songColor") ?
+                            Colour::fromString(preferences.getChildWithName("Display").getProperty("songColor").toString())
+                            : Colour::fromString(SONG_COLOUR);
+    
+    prefSongpartColour = preferences.getChildWithName("Display").hasProperty("songpartColor") ?
+                            Colour::fromString(preferences.getChildWithName("Display").getProperty("songpartColor").toString())
+                            : Colour::fromString(SONGPART_COLOUR);
+      
+    prefRackspaceColour = preferences.getChildWithName("Display").hasProperty("rackspaceColor") ?
+                            Colour::fromString(preferences.getChildWithName("Display").getProperty("rackspaceColor").toString())
+                            : Colour::fromString(RACKSPACE_COLOUR);
+    
+    prefVariationColour = preferences.getChildWithName("Display").hasProperty("variationColor") ?
+                            Colour::fromString(preferences.getChildWithName("Display").getProperty("variationColor").toString())
+                            : Colour::fromString(VARIATION_COLOUR);
+    
+    prefWidgetColour = preferences.getChildWithName("Display").hasProperty("widgetColor") ?
+                            Colour::fromString(preferences.getChildWithName("Display").getProperty("widgetColor").toString())
+                            : Colour::fromString(WIDGET_COLOUR);
+
+ 
+    // Populate preference text labels
     switch(prefOnSelectionPresetMenu->selectedItem) {
         case Preset_displayPartsVariations:
             prefOnSelectionPresetMenu->selectedItemText = ON_SELECTION_MENU_PRESETS[0];
@@ -1303,6 +1562,9 @@ void GridWindow::readPreferences() {
             break;
         case Preset_noAction:
             prefOnSelectionPresetMenu->selectedItemText = ON_SELECTION_MENU_PRESETS[2];
+            break;
+        case Preset_displayWidgets:
+            prefOnSelectionPresetMenu->selectedItemText = ON_SELECTION_MENU_PRESETS[3];
             break;
         default:
             break;
@@ -1315,15 +1577,50 @@ void GridWindow::readPreferences() {
         case Scene_noAction:
             prefOnSelectionSceneMenu->selectedItemText = ON_SELECTION_MENU_SCENES[1];
             break;
+        case Scene_displayWidgets:
+            prefOnSelectionSceneMenu->selectedItemText = ON_SELECTION_MENU_SCENES[2];
+            break;
         default:
             break;
     }   
 
+    // Set preference toggle buttons
     prefToggleDisplayZeroBasedNumbers->setToggleState(gridDisplayZeroBasedNumbers, dontSendNotification);
     prefToggleDisplaySceneNameInTitle->setToggleState(gridDisplaySceneNameInTitle, dontSendNotification);
 }
 
 void GridWindow::savePreferences() {
+    // Build structure
+    ValueTree header = ValueTree{"ExtensionData", {}};
+    header.setProperty("name", (String)PROJECT_NAME, nullptr);
+    header.setProperty("version", (String)PROJECT_VERSION, nullptr);
+    // Grid
+    ValueTree gridSection = ValueTree{"Grid", {}};
+    gridSection.setProperty("columns", gridItemWidthCount, nullptr);
+    gridSection.setProperty("rows", gridItemHeightCount, nullptr);
+    gridSection.setProperty("bankRows", gridBankRowCount, nullptr);
+    gridSection.setProperty("onSelectPreset", prefOnSelectionPresetMenu->selectedItem, nullptr);
+    gridSection.setProperty("onSelectScene", prefOnSelectionSceneMenu->selectedItem, nullptr);
+    // Direct Select
+    ValueTree directSelectSection = ValueTree{"DirectSelect", {}};
+    directSelectSection.setProperty("count", directSelectCount, nullptr);
+    // Display
+    ValueTree displaySection = ValueTree{"Display", {}};
+    displaySection.setProperty("zeroBasedNumbers", gridDisplayZeroBasedNumbers, nullptr);
+    displaySection.setProperty("sceneNameInHeader", gridDisplaySceneNameInTitle, nullptr);
+    displaySection.setProperty("songColor", prefSongColour.toString(), nullptr);
+    displaySection.setProperty("songpartColor", prefSongpartColour.toString(), nullptr);
+    displaySection.setProperty("rackspaceColor", prefRackspaceColour.toString(), nullptr);
+    displaySection.setProperty("variationColor", prefVariationColour.toString(), nullptr);
+    displaySection.setProperty("widgetColor", prefWidgetColour.toString(), nullptr);
+
+    // Merge
+    header.addChild(gridSection, -1, nullptr);
+    header.addChild(directSelectSection, -1, nullptr);
+    header.addChild(displaySection, -1, nullptr);
+    gridWindow->preferences = header;
+
+    /*
     preferences.getChildWithName("Grid").setProperty("columns", gridItemWidthCount, nullptr);
     preferences.getChildWithName("Grid").setProperty("rows", gridItemHeightCount, nullptr);
     preferences.getChildWithName("Grid").setProperty("bankRows", gridBankRowCount, nullptr);
@@ -1332,24 +1629,28 @@ void GridWindow::savePreferences() {
     preferences.getChildWithName("Display").setProperty("sceneNameInHeader", gridDisplaySceneNameInTitle, nullptr);
     preferences.getChildWithName("Grid").setProperty("onSelectPreset", prefOnSelectionPresetMenu->selectedItem, nullptr);
     preferences.getChildWithName("Grid").setProperty("onSelectScene", prefOnSelectionSceneMenu->selectedItem, nullptr);
-
+    */
     saveDataFile();
 }
 
 void GridWindow::readDataFile() {
     String path = LibMain::lib->getPathToMe() + File::getSeparatorString() + PROJECT_NAME + ".xml";
     File dataFile = File(path);
+    /*
     if (!dataFile.existsAsFile()) {
         gridWindow->preferences = gridWindow->setPreferenceDefaults();
         return;
     }
-    std::unique_ptr<XmlElement> xml = XmlDocument(dataFile.loadFileAsString()).getDocumentElement();
-    gridWindow->preferences = ValueTree::fromXml(*xml);
+    */
+    if (dataFile.existsAsFile()) {
+        std::unique_ptr<XmlElement> xml = XmlDocument(dataFile.loadFileAsString()).getDocumentElement();
+        gridWindow->preferences = ValueTree::fromXml(*xml);
+    }
 }
 
 void GridWindow::saveDataFile() {
     // Update version
-    gridWindow->preferences.setProperty("version", (String)PROJECT_VERSION, nullptr);
+    //gridWindow->preferences.setProperty("version", (String)PROJECT_VERSION, nullptr);
     
     String output = gridWindow->preferences.toXmlString();
     String path = LibMain::lib->getPathToMe() + File::getSeparatorString() + PROJECT_NAME + ".xml";;

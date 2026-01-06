@@ -157,6 +157,14 @@ GridWindow::GridWindow ()
     prefToggleDisplayZeroBasedNumbers->setColour (DrawableButton::backgroundOnColourId, Colour(0x00000000));
     gridMenu->addAndMakeVisible(prefToggleDisplayZeroBasedNumbers.get());
 
+    prefToggleDisplaySongKeys.reset (new DrawableButton("displaySongKeys", DrawableButton::ImageFitted));
+    prefToggleDisplaySongKeys->setImages(&off, 0, 0, 0, &on);
+    prefToggleDisplaySongKeys->setClickingTogglesState(true);
+    prefToggleDisplaySongKeys->setRepaintsOnMouseActivity(true); 
+    prefToggleDisplaySongKeys->addListener (this);
+    prefToggleDisplaySongKeys->setColour (DrawableButton::backgroundOnColourId, Colour(0x00000000));
+    gridMenu->addAndMakeVisible(prefToggleDisplaySongKeys.get());
+
     prefOnSelectionPresetMenu.reset (new GridPopupMenuPreset ());
     prefOnSelectionPresetMenu->selectedItem = 1;
     prefOnSelectionPresetMenu->selectedItemText = ON_SELECTION_MENU_PRESETS[0];
@@ -177,7 +185,7 @@ GridWindow::GridWindow ()
     backButton->setBounds(getWidth() - 220, 40, 35, 35);
     preferencesButton->setBounds(getWidth() - 140, 38, 38, 38);
     closeButton->setBounds(getWidth() - 60, 40, 35, 35);
-    gridMenu->setBounds(bounds.getWidth() - 885, y - 15, 810, 650 );
+    gridMenu->setBounds(bounds.getWidth() - 885, y - 15, 810, 700);
     preferencesCloseButton->setBounds(gridMenu->getWidth() - 75, 30, 35, 35);
     gridColumnDownButton->setBounds(260,170,50,50);
     gridColumnUpButton->setBounds(320,170,50,50);
@@ -190,8 +198,8 @@ GridWindow::GridWindow ()
     //prefToggleLatchingSwitches->setBounds(30,640,50,50);
     //prefToggleCloseOnSelect->setBounds(30,675,50,50);
     prefToggleDisplayZeroBasedNumbers->setBounds(430,495,50,50);
-    prefToggleDisplaySceneNameInTitle->setBounds(430,550,50,50);
-
+    prefToggleDisplaySongKeys->setBounds(430,550,50,50);
+    prefToggleDisplaySceneNameInTitle->setBounds(430,605,50,50);
     prefOnSelectionPresetMenu->setBounds(430,225,300,50);
     prefOnSelectionSceneMenu->setBounds(430,345,300,50);
 }
@@ -485,19 +493,31 @@ void GridWindow::buttonClicked (Button* buttonThatWasClicked)
     } else if (buttonThatWasClicked == prefToggleDisplayZeroBasedNumbers.get()) {
         gridDisplayZeroBasedNumbers = buttonThatWasClicked->getToggleState();
         updateGrid();
-    }
+    } else if (buttonThatWasClicked == prefToggleDisplaySongKeys.get()) {
+        gridDisplaySongKeys = buttonThatWasClicked->getToggleState();
+        updateGrid();
+    } 
 }
 
-void GridWindow::presetChanged(int index, StringArray names) {
+void GridWindow::presetChanged(int index, StringArray names, StringArray keys) {
     if (gridWindow == nullptr) return;
     if (gridWindow->grid == nullptr) return;
-    MessageManager::getInstance()->callAsync([index, names]() {
-        gridWindow->presetNames.clear();
-        gridWindow->presetNames.addArray(names);
+    MessageManager::getInstance()->callAsync([index, names, keys]() {
+        //gridWindow->presetNames.clear();
+        //gridWindow->presetNames.addArray(names);
+        gridWindow->presets.clear();
+        for (int i = 0; i < names.size(); ++i) {
+            song preset;
+            preset.name = names[i];
+            preset.key = LibMain::lib->inSetlistMode() ? keys[i] : "";
+            gridWindow->presets.add(preset);
+        }
         gridWindow->presetIndex = index;
         gridWindow->sceneGridStartIndex = 0;
         gridWindow->stompGridStartIndex = 0;
         gridWindow->setGridDisplayMode(Mode_presets);
+        gridWindow->updateSceneList();
+        gridWindow->checkForCustomSceneStart();
     });
 }
 
@@ -508,6 +528,7 @@ void GridWindow::sceneChanged(int index, StringArray names) {
         gridWindow->sceneNames.clear();
         gridWindow->sceneNames.addArray(names);
         gridWindow->sceneIndex = index;
+        gridWindow->updateSceneList();
         gridWindow->stompGridStartIndex = 0;
         if (gridWindow->gridPresetMode == Mode_scenes) {
             gridWindow->setGridDisplayMode(Mode_scenes);
@@ -536,6 +557,50 @@ void GridWindow::titleChanged(int index, String name) {
 void GridWindow::songRackspaceModeChanged() {
     if (gridWindow == nullptr) return;
     gridWindow->gridStartIndex = 0;
+}
+
+void GridWindow::updateSceneList() {
+    gridWindow->sceneIndex = LibMain::lib->inSetlistMode() ? LibMain::lib->getCurrentSongpartIndex() : LibMain::lib->getCurrentVariationIndex();
+    gridWindow->sceneNames = LibMain::lib->inSetlistMode() ? LibMain::lib->getSongPartNames(gridWindow->presetIndex) : LibMain::lib->getVariationNames(gridWindow->presetIndex);
+    
+    // Check for 'first scene suffix'
+    for (int i = 0; i < gridWindow->sceneNames.size(); ++i) {
+        if (gridWindow->sceneNames[i].endsWith(FIRST_SCENE_SUFFIX)) {
+            gridWindow->sceneNames.set(i, gridWindow->sceneNames[i].replace(FIRST_SCENE_SUFFIX,""));
+        }
+    }
+}
+
+/*
+int GridWindow::getSceneIndex() {
+    StringArray names;
+    if (LibMain::lib->inSetlistMode()) {
+        names = LibMain::lib->getSongPartNames(LibMain::lib->getCurrentSongIndex());
+    } else {
+        names = LibMain::lib->getVariationNames(LibMain::lib->getCurrentRackspaceIndex());
+    }
+    for (int i = 0; i < names.size(); ++i) {
+        if (names[i].endsWith("[1]")) {
+            return i;
+        }
+    }
+    return 0;
+}
+*/
+
+void GridWindow::checkForCustomSceneStart() {
+    StringArray names = LibMain::lib->inSetlistMode() ? LibMain::lib->getSongPartNames(gridWindow->presetIndex) 
+                                                      : LibMain::lib->getVariationNames(gridWindow->presetIndex);
+    for (int i = 0; i < names.size(); ++i) {
+        if (names[i].endsWith(FIRST_SCENE_SUFFIX)) {
+            if (LibMain::lib->inSetlistMode()) {
+                (void)LibMain::lib->switchToSongPart(i);
+            } else {
+                (void)LibMain::lib->switchToVariation(i);
+            }
+            return;
+        }
+    }
 }
 
 void GridWindow::resized() {
@@ -580,17 +645,19 @@ void GridWindow::updateGridItems(modes presetMode) {
 
     gridWindow->gridItems.clear();
     gridWindow->grid->removeAllChildren();
-    StringArray names = presetMode == Mode_presets ? gridWindow->presetNames : gridWindow->sceneNames;
+    gridWindow->updateSceneList();
+    StringArray names = presetMode == Mode_presets ? gridWindow->getPresetNames() : gridWindow->sceneNames;
     int index = presetMode == Mode_presets ? gridWindow->presetIndex : gridWindow->sceneIndex;
-
+    /*
     if (presetMode == Mode_scenes) {
         //gridWindow->sceneChanged(LibMain::lib->getCurrentSongpartIndex(),LibMain::lib->getSongPartNames(gridWindow->presetIndex));
-        gridWindow->sceneIndex = LibMain::lib->inSetlistMode() ? LibMain::lib->getCurrentSongpartIndex() : LibMain::lib->getCurrentVariationIndex();
-        gridWindow->sceneNames = LibMain::lib->inSetlistMode() ? LibMain::lib->getSongPartNames(gridWindow->presetIndex) : LibMain::lib->getVariationNames(gridWindow->presetIndex);
+        //gridWindow->sceneIndex = LibMain::lib->inSetlistMode() ? LibMain::lib->getCurrentSongpartIndex() : LibMain::lib->getCurrentVariationIndex();
+        //gridWindow->sceneNames = LibMain::lib->inSetlistMode() ? LibMain::lib->getSongPartNames(gridWindow->presetIndex) : LibMain::lib->getVariationNames(gridWindow->presetIndex);
+        //gridWindow->updateSceneList();
         names = gridWindow->sceneNames;
         index = gridWindow->sceneIndex;
     } 
-    
+    */
     if (presetMode != Mode_stomps) {
         for (int i = 0; i < names.size(); ++i) { 
             GridSelectorItem* gsi = new GridSelectorItem();
@@ -602,7 +669,7 @@ void GridWindow::updateGridItems(modes presetMode) {
             gridWindow->grid->addAndMakeVisible(gsi);
         }
     } else {
-        refreshStompList();
+        updateStompList();
         for (int i = 0; i < gridWindow->stomps.size(); ++i) { 
             GridSelectorItem* gsi = new GridSelectorItem();
             gsi->number = i;
@@ -613,7 +680,8 @@ void GridWindow::updateGridItems(modes presetMode) {
             gridWindow->grid->addAndMakeVisible(gsi);
         }
     }
-    titleChanged(presetIndex, presetNames[presetIndex]);
+    //titleChanged(presetIndex, presetNames[presetIndex]);
+    titleChanged(presetIndex, presets[presetIndex].name);
     gridWindow->updateGrid();
     gridWindow->resized();
 }
@@ -680,6 +748,14 @@ void GridWindow::directSelectWidget(String name) {
 }
 */
 
+StringArray GridWindow::getPresetNames() {
+    StringArray names;
+    for (int i = 0; i < gridWindow->presets.size(); ++i) {
+        names.add(gridWindow->presets[i].name);
+    }
+    return names;
+}
+
 StringArray GridWindow::getWidgetList(bool isGlobal) {
     StringArray widgetList;
     std::vector<std::string> list;
@@ -698,7 +774,7 @@ StringArray GridWindow::getWidgetList(bool isGlobal) {
     return widgetList;
 }
 
-void GridWindow::refreshStompList() {
+void GridWindow::updateStompList() {
     
     gridWindow->stomps.clear();
 
@@ -729,7 +805,7 @@ void GridWindow::refreshStompList() {
 }
 
 void GridWindow::setGridDisplayMode (modes presetMode) {
-    gridWindow->refreshStompList();
+    gridWindow->updateStompList();
     if (presetMode == Mode_stomps && !stompsExist) {
         toggleModeDirectionDown = false;
         // If currently in stomp mode and no stomps exist, then switch to scene mode
@@ -951,7 +1027,21 @@ void GridSelectorItem::paint (Graphics& g)
         g.drawFittedText ((String(displayNumber)),
                             getLocalBounds().reduced (25, 15),
                             Justification::topLeft, 1, 1.f);
-        
+    }
+
+    // Key
+    if (GridWindow::gridWindow->gridPresetMode == Mode_presets && GridWindow::gridWindow->gridDisplaySongKeys) {
+        String key = GridWindow::gridWindow->presets[number].key;
+        key = key.replace("Major","");
+        if (key.endsWith("Minor")) {
+            key = key.replace("/"," Minor/").replace(" Minor","m");
+        }
+        g.setFont(font.withHeight(font.getHeight() * 0.8f));
+        g.drawFittedText (key,
+                                getLocalBounds().reduced (25, 15),
+                                Justification::bottomLeft, 1, 1.f);
+         //g.setFont(g.getCurrentFont().setItalic(false));
+         g.setFont(font);
     }
 
     // Direct Select Number
@@ -1213,10 +1303,10 @@ void GridSelectorTitle::paint (Graphics& g)
     g.setColour (Colours::white);
     String title = name;
     if (GridWindow::gridWindow->gridDisplaySceneNameInTitle) {
-        String sceneName = LibMain::lib->inSetlistMode() ? LibMain::lib->getSongpartName(LibMain::lib->getCurrentSongIndex(), LibMain::lib->getCurrentSongpartIndex())
-                                                : LibMain::lib->getVariationName(LibMain::lib->getCurrentRackspaceIndex(), LibMain::lib->getCurrentVariationIndex());
+        String sceneName = GridWindow::gridWindow->sceneNames[GridWindow::gridWindow->sceneIndex];
         title = title + " — " + sceneName;
     }
+    
     g.drawFittedText (title,
                         area.reduced (50 + g.getCurrentFont().getStringWidth(String(displayNumber)), 0),
                         Justification::left, 1, 1.f);
@@ -1397,8 +1487,11 @@ void GridMenu::paint (Graphics& g)
     g.drawFittedText ("Zero-Based Numbers",
                     getLocalBounds().withLeft(500).withTop(503),
                     Justification::topLeft, 1, 1.f);
-    g.drawFittedText ("Display Part/Variation Name in Header",
+    g.drawFittedText ("Display Song Keys",
                     getLocalBounds().withLeft(500).withTop(558),
+                    Justification::topLeft, 2, 1.f);
+    g.drawFittedText ("Display Part/Variation Name in Header",
+                    getLocalBounds().withLeft(500).withTop(613),
                     Justification::topLeft, 2, 1.f);
 }
 
@@ -1531,6 +1624,10 @@ void GridWindow::readPreferences() {
                             preferences.getChildWithName("Display").getProperty("sceneNameInHeader").toString().getIntValue()
                             : DISPLAY_SCENE_NAME_IN_HEADER_DEFAULT;
 
+    gridDisplaySongKeys = preferences.getChildWithName("Display").hasProperty("songKeys") ?
+                            preferences.getChildWithName("Display").getProperty("songKeys").toString().getIntValue()
+                            : DISPLAY_SONG_KEYS_DEFAULT;                      
+
     prefSongColour = preferences.getChildWithName("Display").hasProperty("songColor") ?
                             Colour::fromString(preferences.getChildWithName("Display").getProperty("songColor").toString())
                             : Colour::fromString(SONG_COLOUR);
@@ -1587,6 +1684,7 @@ void GridWindow::readPreferences() {
     // Set preference toggle buttons
     prefToggleDisplayZeroBasedNumbers->setToggleState(gridDisplayZeroBasedNumbers, dontSendNotification);
     prefToggleDisplaySceneNameInTitle->setToggleState(gridDisplaySceneNameInTitle, dontSendNotification);
+    prefToggleDisplaySongKeys->setToggleState(gridDisplaySongKeys, dontSendNotification);
 }
 
 void GridWindow::savePreferences() {
@@ -1608,6 +1706,7 @@ void GridWindow::savePreferences() {
     ValueTree displaySection = ValueTree{"Display", {}};
     displaySection.setProperty("zeroBasedNumbers", gridDisplayZeroBasedNumbers, nullptr);
     displaySection.setProperty("sceneNameInHeader", gridDisplaySceneNameInTitle, nullptr);
+    displaySection.setProperty("songKeys", gridDisplaySongKeys, nullptr);
     displaySection.setProperty("songColor", prefSongColour.toString(), nullptr);
     displaySection.setProperty("songpartColor", prefSongpartColour.toString(), nullptr);
     displaySection.setProperty("rackspaceColor", prefRackspaceColour.toString(), nullptr);

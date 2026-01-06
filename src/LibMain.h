@@ -95,6 +95,7 @@ public:
 
     StringArray getSongNames();
     StringArray getSongPartNames(int songIndex);
+    StringArray getSongKeys();
     StringArray getRackspaceNames();
     StringArray getVariationNames(int rackspaceIndex);
 

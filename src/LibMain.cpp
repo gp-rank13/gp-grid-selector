@@ -50,9 +50,10 @@ void LibMain::OnStatusChanged(GPStatusType status) {
             isGigFileLoading = false;
             setWidgetValue("GPGS_DISPLAY", 0.0);
             if (inSetlistMode()) {
-               GridWindow::presetChanged(getCurrentSongIndex(), getSongNames());
+               GridWindow::presetChanged(getCurrentSongIndex(), getSongNames(), getSongKeys());
             } else {
-               GridWindow::presetChanged(getCurrentRackspaceIndex(), getRackspaceNames()); 
+               StringArray blank;
+               GridWindow::presetChanged(getCurrentRackspaceIndex(), getRackspaceNames(), blank); 
             }
             break;
         default:
@@ -63,7 +64,7 @@ void LibMain::OnStatusChanged(GPStatusType status) {
 void LibMain::OnSongChanged(int, int newIndex) {
     if (isGigFileLoading) return;
     if (newIndex >= 0 && inSetlistMode()) {
-        GridWindow::presetChanged(newIndex, getSongNames());
+        GridWindow::presetChanged(newIndex, getSongNames(), getSongKeys());
     }
 }
 
@@ -77,14 +78,16 @@ void LibMain::OnSongPartChanged(int oldIndex, int newIndex) {
 void LibMain::OnSetlistChanged(const std::string&) {
    if (isGigFileLoading) return;
    if (inSetlistMode()) {
-      GridWindow::presetChanged(getCurrentSongIndex(), getSongNames());    
+      StringArray blank;
+      GridWindow::presetChanged(getCurrentSongIndex(), getSongNames(), getSongKeys());    
    }
 }
 
 void LibMain::OnRackspaceActivated() {
     if (isGigFileLoading) return;
     if (!inSetlistMode()) {
-        GridWindow::presetChanged(getCurrentRackspaceIndex(), getRackspaceNames()); 
+        StringArray blank;
+        GridWindow::presetChanged(getCurrentRackspaceIndex(), getRackspaceNames(), blank); 
     }
 }
 
@@ -106,9 +109,10 @@ void LibMain::OnModeChanged(int mode) {
    if (isGigFileLoading) return;
    GridWindow::songRackspaceModeChanged();
    if (mode == GP_SetlistMode) {
-      GridWindow::presetChanged(getCurrentSongIndex(), getSongNames());    
+      GridWindow::presetChanged(getCurrentSongIndex(), getSongNames(), getSongKeys());    
    } else {
-      GridWindow::presetChanged(getCurrentRackspaceIndex(), getRackspaceNames()); 
+      StringArray blank;
+      GridWindow::presetChanged(getCurrentRackspaceIndex(), getRackspaceNames(), blank); 
    }
 }
 
@@ -172,6 +176,17 @@ StringArray LibMain::getSongPartNames(int songIndex) {
         songPartNames.add(songPartName);
     }
     return songPartNames;
+}
+
+StringArray LibMain::getSongKeys() {
+    StringArray songKeys;
+    String songKey;
+    int songCount = getSongCount();
+    for (int i = 0; i < songCount; ++i) { 
+        songKey = getSongKey(i);
+        songKeys.add(songKey);
+    }
+    return songKeys;
 }
 
 StringArray LibMain::getRackspaceNames() {

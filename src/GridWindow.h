@@ -173,7 +173,7 @@ public:
   void static setGridDuration(int ms);
   void static setGridPositionSize(int x, int y, int width, int height);
   void static setGridNamedPositionSize(std::string positionName, int width, int height);
-  void static presetChanged(int index, StringArray names);
+  void static presetChanged(int index, StringArray names, StringArray keys);
   void static sceneChanged(int index, StringArray names);
   void static stompChanged();
   void static titleChanged(int index, String name);
@@ -213,6 +213,7 @@ public:
   //bool gridCloseOnItemSelect = false;
   bool gridDisplaySceneNameInTitle = false;
   bool gridDisplayZeroBasedNumbers = false;
+  bool gridDisplaySongKeys = false;
   Colour prefSongColour;
   Colour prefSongpartColour;
   Colour prefRackspaceColour;
@@ -224,6 +225,8 @@ public:
   int presetIndex = 0;
   int presetGridStartIndex = 0;
   int sceneIndex = 0;
+  StringArray presetNames;
+  StringArray sceneNames;
   int sceneGridStartIndex = 0;
   int stompGridStartIndex = 0;
   bool toggleModeDirectionDown = true;
@@ -237,7 +240,16 @@ public:
     bool isGlobal;
   };
 
+  struct song {
+    int index;
+    String name;
+    String artist;
+    String key;
+    bool isActive;
+  };
+
   Array<widget> stomps;
+  Array<song> presets;
   CachedValue<var> cachedGridItemWidthCount;
 
 private:
@@ -245,14 +257,17 @@ private:
 
   int gridDirectSelect(int index);
   void updateDirectSelectLabel();
-  void refreshStompList();
+  void updateStompList();
+  void updateSceneList();
+  //int getSceneIndex();
+  void checkForCustomSceneStart();
   StringArray getWidgetList(bool isGlobal);
+  StringArray getPresetNames();
   ValueTree setPreferenceDefaults();
   std::unique_ptr<GridTimer> gridTimer;
   //int gridStartIndex = 0; moving to public for testing
   OwnedArray<GridSelectorItem> gridItems;
-  StringArray presetNames;
-  StringArray sceneNames;
+
   StringArray stompNames;
   StringArray stompHandles;
   Array<bool> stompStates;
@@ -271,6 +286,7 @@ private:
   //std::unique_ptr<DrawableButton> prefToggleCloseOnSelect;
   std::unique_ptr<DrawableButton> prefToggleDisplaySceneNameInTitle;
   std::unique_ptr<DrawableButton> prefToggleDisplayZeroBasedNumbers;
+  std::unique_ptr<DrawableButton> prefToggleDisplaySongKeys;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GridWindow)
 };

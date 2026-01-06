@@ -11,8 +11,10 @@ const bool GRID_DIRECT_SELECT_ACTIVE_ON_CLOSE = true;
 const int GRID_CLOSE_DELAY_MS = 500;
 const bool DISPLAY_ZERO_BASED_NUMBERS_DEFAULT = false;
 const bool DISPLAY_SCENE_NAME_IN_HEADER_DEFAULT = false;
+const bool DISPLAY_SONG_KEYS_DEFAULT = false;
 const juce::StringArray ON_SELECTION_MENU_PRESETS = {"Display Parts/Variations", "Close Selector","No Action","Display Widgets"};
 const juce::StringArray ON_SELECTION_MENU_SCENES = {"Close Selector","No Action","Display Widgets"};
+const juce::String FIRST_SCENE_SUFFIX = "*";
 
 enum modes {
     Mode_presets,

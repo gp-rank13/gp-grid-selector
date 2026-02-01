@@ -47,6 +47,9 @@ public:
   void mouseEnter (const MouseEvent& e) override;
   void mouseExit (const MouseEvent& e) override;
   void paint(Graphics& g) override;
+
+  int directSelectNumber = 10;
+
 private:
   bool hover = false;
     
@@ -61,6 +64,9 @@ public:
   void mouseEnter (const MouseEvent& e) override;
   void mouseExit (const MouseEvent& e) override;
   void paint(Graphics& g) override;
+
+  int directSelectNumber = 6;
+
 private:
     bool hover = false;
     
@@ -210,7 +216,11 @@ public:
   int gridItemHeightCount = GRID_ROWS_DEFAULT;
   int directSelectCount = GRID_DIRECT_SELECT_DEFAULT;
   int gridBankRowCount = GRID_BANK_ROWS_DEFAULT;
-  //bool gridCloseOnItemSelect = false;
+  int gridItemWidthCountAlt = 5;
+  int gridItemHeightCountAlt = 2;
+  bool gridDifferentGridSizeForScenes = true;
+  bool prefAutoAssignBankButtonsFromDirectSelect = true;
+  bool prefUseBankButtonsAsDirectSelect = false;
   bool gridDisplaySceneNameInTitle = false;
   bool gridDisplayZeroBasedNumbers = false;
   bool gridDisplaySongKeys = false;
@@ -225,6 +235,7 @@ public:
   int presetIndex = 0;
   int presetGridStartIndex = 0;
   int sceneIndex = 0;
+  int directSelectFontHeightGlobal = 0;
   StringArray presetNames;
   StringArray sceneNames;
   int sceneGridStartIndex = 0;

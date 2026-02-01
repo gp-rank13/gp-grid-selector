@@ -5,11 +5,7 @@
 #include "GridWindow.h"
 
 GridWindow* GridWindow::gridWindow = nullptr;
-//LibMain* lib = new LibMain(nullptr);   
 LibMain* LibMain::lib = nullptr;
-
-int gridFontSizeMin = 40;
-int gridFontSizeMax = 50;
 
 GridWindow::GridWindow ()
 {   
@@ -612,16 +608,23 @@ void GridWindow::resized() {
         gridWidth = grid->getWidth() - (pad * 2);
     }
   
-    int gridCount = gridItemWidthCount * gridItemHeightCount;
-    int gridItemHeight = gridHeight / gridItemHeightCount;
-    int gridItemWidth = gridWidth / gridItemWidthCount;
+    //int gridCount = gridItemWidthCount * gridItemHeightCount;
+
+    int widthCount = gridItemWidthCount;
+    int heightCount = gridItemHeightCount;
+    if (prefUseBankButtonsAsDirectSelect && gridPresetMode != Mode_presets) {
+        widthCount += 1;
+    }
+    int gridCount = widthCount * heightCount;
+    int gridItemWidth = gridWidth / widthCount;
+    int gridItemHeight = gridHeight / heightCount;
     if (gridItems.size() == 0) return;
 
     int minIndex = gridStartIndex;
     int maxIndex = jmin(gridStartIndex + gridCount, gridItems.size());
     for (int i = minIndex; i < maxIndex; ++i) { 
         int displayIndex = i - gridStartIndex;
-        gridItems[i]->setBounds((displayIndex % gridItemWidthCount) * gridItemWidth + pad, floor(displayIndex / gridItemWidthCount) * gridItemHeight + pad, gridItemWidth, gridItemHeight);
+        gridItems[i]->setBounds((displayIndex % widthCount) * gridItemWidth + pad, floor(displayIndex / widthCount) * gridItemHeight + pad, gridItemWidth, gridItemHeight);
     }
 }
 
@@ -629,8 +632,11 @@ void GridWindow::gridBank(bool down) {
     MessageManager::getInstance()->callAsync([down]() {
         int startIndex = gridWindow->gridStartIndex;
         int itemSize = gridWindow->gridItems.size();
-        int gridSize = gridWindow->gridItemWidthCount * gridWindow->gridItemHeightCount;
-        int bankSize = gridWindow->gridItemWidthCount * gridWindow->gridBankRowCount;
+        int widthCount = gridWindow->gridItemWidthCount;
+        if (gridWindow->gridDifferentGridSizeForScenes && gridWindow->gridPresetMode != Mode_presets) {
+            widthCount = gridWindow->gridItemWidthCountAlt;
+        }
+        int bankSize = widthCount * gridWindow->gridBankRowCount;
 
         if (down && startIndex + bankSize >= itemSize) return;
         
@@ -688,20 +694,54 @@ void GridWindow::updateGridItems(modes presetMode) {
 
 void GridWindow::updateGrid() {
 
-    int gridCount = gridItemWidthCount * gridItemHeightCount;
+    int widthCount =  gridItemWidthCount;
+    int dsCount = directSelectCount;
+    if (prefAutoAssignBankButtonsFromDirectSelect) {
+        dsCount -= 2;
+    }
+    /*
+    if (prefUseBankButtonsAsDirectSelect && gridPresetMode != Mode_presets) {
+        widthCount += 1;
+        dsCount += floor(directSelectCount / gridItemWidthCount);
+    }
+    */
+    int gridCount = widthCount * gridItemHeightCount;
 
+    
+
+    /*
     // Direct select number: Determine the starting index, targeting the middle row.
     //int directSelectRows = ceil(directSelectCount / gridWindow->gridItemWidthCount);
     int startingRow = 0; //floor((gridWindow->gridItemHeightCount - directSelectRows) / 2.f);
-    int startingIndex = startingRow * gridWindow->gridItemWidthCount - 1;
+    int startingIndex = startingRow * widthCount - 1;
 
-    for (int i = 0; i < gridWindow->gridItems.size(); ++i) { 
+    for (int i = 0; i < gridItems.size(); ++i) { 
         if (i < gridStartIndex || i - gridStartIndex >= gridCount) {
             gridItems[i]->directSelectNumber = 0;
             gridItems[i]->setVisible(false);
         } else {
-            if (i - gridStartIndex >= startingIndex && i - gridStartIndex < startingIndex + directSelectCount + 1) {
+            if (i - gridStartIndex >= startingIndex && i - gridStartIndex < startingIndex + dsCount + 1) {
                 gridItems[i]->directSelectNumber = i - gridStartIndex - startingIndex;
+            } else {
+                gridItems[i]->directSelectNumber = 0;
+            }
+            gridItems[i]->setVisible(true);
+            gridItems[i]->repaint();
+        }
+    }
+    */
+    for (int i = 0; i < gridItems.size(); ++i) { 
+        if (i < gridStartIndex || i - gridStartIndex >= gridCount) {
+            gridItems[i]->directSelectNumber = 0;
+            gridItems[i]->setVisible(false);
+        } else {
+            if (i - gridStartIndex < dsCount) {
+                // Determine the grid row index
+                int rowIndex = floor((i - gridStartIndex) / widthCount);
+                // Offset direct select number to account for bank up/down at end of row
+                int newI = i + rowIndex;
+
+                gridItems[i]->directSelectNumber = newI - gridStartIndex + 1;
             } else {
                 gridItems[i]->directSelectNumber = 0;
             }
@@ -715,11 +755,26 @@ void GridWindow::updateGrid() {
 
 void GridWindow::directSelect(String name) {
     MessageManager::getInstance()->callAsync([name]() {
-        // Extract direct select number from name
-        int directSelectNumber = name.getTrailingIntValue();
-        for (int i = gridWindow->gridStartIndex; i < gridWindow->gridItems.size(); ++i) { 
-            if (gridWindow->gridItems[i]->directSelectNumber == directSelectNumber) {
-                gridWindow->triggerGridItem(gridWindow->gridItems[i]->number);
+        if (name == "GPGS_BANKDOWN") {
+            gridWindow->gridBank(true);
+        } else if (name == "GPGS_BANKUP") {
+            gridWindow->gridBank(false);
+        } else {
+            // Extract direct select number from name
+            int directSelectNumber = name.getTrailingIntValue();
+            /*
+            // If the bank buttons are being used for direct select, recalculate the number
+            int offset = 0;
+            if (gridWindow->prefUseBankButtonsAsDirectSelect && gridWindow->gridPresetMode != Mode_presets) {
+                int widthCount = gridWindow->gridDifferentGridSizeForScenes ? gridWindow->gridItemWidthCount : gridWindow->gridItemWidthCountAlt;
+                offset = directSelectNumber / widthCount;
+
+            }
+            */
+            for (int i = gridWindow->gridStartIndex; i < gridWindow->gridItems.size(); ++i) { 
+                if (gridWindow->gridItems[i]->directSelectNumber == directSelectNumber) {
+                    gridWindow->triggerGridItem(gridWindow->gridItems[i]->number);
+                }
             }
         }
     });
@@ -977,7 +1032,7 @@ void GridSelectorItem::paint (Graphics& g)
     // Border
     if (selected) {
         g.setColour(backgroundColour.withMultipliedLightness(0.6f));
-        g.drawRoundedRectangle(area, cornerSize, 2.f);
+        g.drawRoundedRectangle(area, cornerSize, 1.f);
     } else {
         g.setColour (Colour(0xff404040));
         g.drawRoundedRectangle(area, cornerSize, 1.f);
@@ -1045,14 +1100,17 @@ void GridSelectorItem::paint (Graphics& g)
     }
 
     // Direct Select Number
-    fontHeight = font.getHeight();
+    fontHeight = font.getHeight() * 0.8f;
+    GridWindow::gridWindow->directSelectFontHeightGlobal = fontHeight;
+    g.setFont(fontHeight);
     if (directSelectNumber >= 1 ) {
         String controllerNumberText = String(directSelectNumber);
         auto stringWidth = font.getStringWidth(controllerNumberText);
-        
+        auto areaWidth = (directSelectNumber < 10) ? stringWidth + (fontHeight * 0.4f) : stringWidth + (fontHeight * 0.2f); 
+
         // Background
         g.setColour (Colour(0xff000000));
-        Rectangle<float> newArea {area.getWidth() - 8.f - stringWidth - (fontHeight * 0.4f), 8.f + (fontHeight * 0.25f), stringWidth + (fontHeight * 0.4f) , fontHeight};
+        Rectangle<float> newArea {area.getWidth() - 8.f - stringWidth - (fontHeight * 0.4f), 8.f + (fontHeight * 0.25f), areaWidth, fontHeight * 1.2f};
         g.fillRoundedRectangle(newArea, cornerSize);
         
         //Border
@@ -1324,60 +1382,89 @@ void GridSelectorTitle::paint (Graphics& g)
 
 void GridSelectorBankUp::paint (Graphics& g)
 {
-    auto area = getLocalBounds().toFloat().reduced(16.f);
+    int pad = 16.f;
+    auto area = getLocalBounds().toFloat().reduced(pad).withLeft(0).withBottom(getHeight() - pad/2);
     
     // Background
-    g.fillAll(Colour(0xff000000));
+    g.fillAll(Colour(0xff151515));
     
     // Button background
     float cornerSize = 8.f;
     if (hover) {
         g.setColour (Colour(0xff303030));
     } else {
-        g.setColour (Colour(0xff252525));
+        g.setColour (Colour(0xff202020));
     }
     g.fillRoundedRectangle (area, cornerSize);
 
     // Button border
-    g.setColour (Colour(0xff505050));
+    g.setColour (Colour(0xff404040));
     g.drawRoundedRectangle(area, cornerSize, 1.f);
 
     // Arrow
     float arrowHeight = 40.0f;
     juce::Path arrow;
-    arrow.addTriangle ((float)getWidth() / 2.0f - (arrowHeight / 2.0f), (float)getHeight() / 2.0f + (arrowHeight / 2.0f), // Bottom-left point
-                          (float)getWidth() / 2.0f + (arrowHeight / 2.0f), (float)getHeight() / 2.0f + (arrowHeight / 2.0f), // Bottom-right point
-                          (float)getWidth() / 2.0f, (float)getHeight() / 2.0f - (arrowHeight / 2.0f)); // Top-center point
+    arrow.addTriangle ((float)getWidth() / 2.0f - (arrowHeight / 2.0f) - (float)pad/2, (float)getHeight() / 2.0f + (arrowHeight / 2.0f), // Bottom-left point
+                          (float)getWidth() / 2.0f + (arrowHeight / 2.0f) - (float)pad/2, (float)getHeight() / 2.0f + (arrowHeight / 2.0f), // Bottom-right point
+                          (float)getWidth() / 2.0f - (float)pad/2, (float)getHeight() / 2.0f - (arrowHeight / 2.0f)); // Top-center point
     g.setColour (Colour(0xffffffff));
     g.fillPath (arrow);
+
+    // Direct Select Number
+    int fontSize = 60;
+    Font font (fontSize);
+    int fontHeight = font.getHeight() * 0.8f;
+    g.setFont(fontHeight);
+    if (directSelectNumber >= 1 ) {
+        String controllerNumberText = String(directSelectNumber);
+        auto stringWidth = font.getStringWidth(controllerNumberText);
+        auto newAreaWidth = (directSelectNumber < 10) ? stringWidth + (fontHeight * 0.4f) : stringWidth + (fontHeight * 0.2f); 
+
+        // Background
+        g.setColour (Colour(0xff000000));
+        Rectangle<float> newArea {area.getWidth() - newAreaWidth - ((area.getWidth() - newAreaWidth) / 2), pad + (fontHeight * 0.25f), newAreaWidth, fontHeight * 1.2f};
+        g.fillRoundedRectangle(newArea, cornerSize);
+        
+        //Border
+        //g.setColour(backgroundColour.withMultipliedLightness(1.5f));
+        g.setColour (Colour(0xff404040));
+        g.drawRoundedRectangle(newArea, cornerSize, 1.f);
+        
+        // Number
+        g.setColour (Colours::white);
+        g.drawFittedText (controllerNumberText,
+                    newArea.toNearestInt(),
+                    Justification::centred, 1, 1.f);
+    }
 }
 
 void GridSelectorBankDown::paint (Graphics& g)
 {
-    auto area = getLocalBounds().toFloat().reduced(16.f);
+    int pad = 16.f;
+    auto area = getLocalBounds().toFloat().reduced(pad).withLeft(0).withTop(pad/2);
     
     // Background
-    g.fillAll(Colour(0xff000000));
+    g.fillAll(Colour(0xff151515));
 
     // Button background
     float cornerSize = 8.f;
     if (hover) {
         g.setColour (Colour(0xff303030));
     } else {
-        g.setColour (Colour(0xff252525));
+        g.setColour (Colour(0xff202020));
     }
     g.fillRoundedRectangle (area, cornerSize);
 
     // Button border
-    g.setColour (Colour(0xff505050));
+    g.setColour (Colour(0xff404040));
     g.drawRoundedRectangle(area, cornerSize, 1.f);
 
     // Arrow
     float arrowHeight = 40.0f;
     juce::Path arrow;
-    arrow.addTriangle ((float)getWidth() / 2.0f - (arrowHeight / 2.0f), (float)getHeight() / 2.0f - (arrowHeight / 2.0f), // Top-left point
-                          (float)getWidth() / 2.0f + (arrowHeight / 2.0f), (float)getHeight() / 2.0f - (arrowHeight / 2.0f), // Top-right point
-                          (float)getWidth() / 2.0f, (float)getHeight() / 2.0f + (arrowHeight / 2.0f)); // Bottom-center point
+    arrow.addTriangle ((float)getWidth() / 2.0f - (arrowHeight / 2.0f) - (float)pad/2, (float)getHeight() / 2.0f - (arrowHeight / 2.0f), // Top-left point
+                          (float)getWidth() / 2.0f + (arrowHeight / 2.0f) - (float)pad/2, (float)getHeight() / 2.0f - (arrowHeight / 2.0f), // Top-right point
+                          (float)getWidth() / 2.0f - (float)pad/2, (float)getHeight() / 2.0f + (arrowHeight / 2.0f)); // Bottom-center point
     g.setColour (Colour(0xffffffff));
     g.fillPath (arrow); 
 }

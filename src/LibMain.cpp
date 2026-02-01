@@ -117,32 +117,38 @@ void LibMain::OnModeChanged(int mode) {
 }
 
 void LibMain::OnWidgetValueChanged(const std::string& widgetName, double newValue) {
-    if (isGigFileLoading) return;
-    if (widgetName == "GPGS_DISPLAY") {
-         if (newValue == 1.0) {
-            GridWindow::showGrid();
-         } else {
-            GridWindow::hideGrid();
-         }
-    } else if (widgetName == "GPGS_MODE") {
-         if (newValue == 1.0) {
-            GridWindow::toggleGridDisplayMode();
-         }
-    } else if (widgetName == "GPGS_BANKUP") {
+   if (isGigFileLoading) return;
+   if (widgetName == "GPGS_DISPLAY") {
       if (newValue == 1.0) {
-         GridWindow::gridBank(false);
+         GridWindow::showGrid();
+      } else {
+         GridWindow::hideGrid();
       }
-    } else if (widgetName == "GPGS_BANKDOWN") {
+   } else if (widgetName == "GPGS_MODE") {
       if (newValue == 1.0) {
-         GridWindow::gridBank(true);
+         GridWindow::toggleGridDisplayMode();
       }
-    } else if (widgetName.starts_with("GPGS_DS")) {
+   } /*else if (widgetName == "GPGS_BANKUP") {
+   if (newValue == 1.0) {
+      GridWindow::gridBank(false);
+   }
+   } else if (widgetName == "GPGS_BANKDOWN") {
+   if (newValue == 1.0) {
+      GridWindow::gridBank(true);
+   }
+   }*/
+   else if (widgetName.starts_with("GPGS_BANK")) {
       if (newValue == 1.0) {
          GridWindow::directSelect((String)widgetName);
       }
-    } else if (widgetName.starts_with("GPGS_GW") || widgetName.starts_with("GPGS_W")) {
-         GridWindow::stompChanged();   
-    } 
+   }
+   else if (widgetName.starts_with("GPGS_DS")) {
+   if (newValue == 1.0) {
+      GridWindow::directSelect((String)widgetName);
+   }
+   } else if (widgetName.starts_with("GPGS_GW") || widgetName.starts_with("GPGS_W")) {
+      GridWindow::stompChanged();   
+   } 
 }
 
 void LibMain::OnTunerModeChanged(bool visible) {

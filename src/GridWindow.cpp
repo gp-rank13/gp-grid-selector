@@ -1823,13 +1823,15 @@ void GridWindow::readDataFile() {
     String path = LibMain::lib->getPathToMe() + File::getSeparatorString() + PROJECT_NAME + ".xml";
     File dataFile = File(path);
     /*
-    if (!dataFile.existsAsFile()) {
-        gridWindow->preferences = gridWindow->setPreferenceDefaults();
-        return;
-    }
-    */
     if (dataFile.existsAsFile()) {
         std::unique_ptr<XmlElement> xml = XmlDocument(dataFile.loadFileAsString()).getDocumentElement();
+        gridWindow->preferences = ValueTree::fromXml(*xml);
+    }
+    */
+    // Testing
+    if (LibMain::lib->persistentVariableExists("preferences", true)) {
+        String input = LibMain::lib->recallPersistentStringVariable("preferences", true);
+        std::unique_ptr<XmlElement> xml = XmlDocument(input).getDocumentElement();
         gridWindow->preferences = ValueTree::fromXml(*xml);
     }
 }
@@ -1839,10 +1841,14 @@ void GridWindow::saveDataFile() {
     //gridWindow->preferences.setProperty("version", (String)PROJECT_VERSION, nullptr);
     
     String output = gridWindow->preferences.toXmlString();
+    /*
     String path = LibMain::lib->getPathToMe() + File::getSeparatorString() + PROJECT_NAME + ".xml";;
     File dataFile = File(path);
     dataFile.create();
     dataFile.replaceWithText(output);
+    */
+    // Testing
+    LibMain::lib->storePersistentStringVariable("preferences", output.toStdString(), true);
 }
 
 void GridTimer::timerCallback()

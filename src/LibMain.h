@@ -85,10 +85,17 @@ public:
         for (int i = 1; i <= 20; ++i) {  
             listenForWidget("GPGS_DS" + std::to_string(i), true);
         }
+        for (int i = 1; i <= 20; ++i) {  
+            listenForWidget("GPGS_GW" + std::to_string(i), true);
+        }
+        for (int i = 1; i <= 20; ++i) {  
+            listenForWidget("GPGS_W" + std::to_string(i), true);
+        }
     }
 
     StringArray getSongNames();
     StringArray getSongPartNames(int songIndex);
+    StringArray getSongKeys();
     StringArray getRackspaceNames();
     StringArray getVariationNames(int rackspaceIndex);
 

@@ -1829,8 +1829,8 @@ void GridWindow::readDataFile() {
     }
     */
     // Testing
-    if (LibMain::lib->persistentVariableExists("preferences", true)) {
-        String input = LibMain::lib->recallPersistentStringVariable("preferences", true);
+    if (LibMain::lib->persistentVariableExists("preferences", false)) {
+        String input = LibMain::lib->recallPersistentStringVariable("preferences", false);
         std::unique_ptr<XmlElement> xml = XmlDocument(input).getDocumentElement();
         gridWindow->preferences = ValueTree::fromXml(*xml);
     }
@@ -1848,7 +1848,7 @@ void GridWindow::saveDataFile() {
     dataFile.replaceWithText(output);
     */
     // Testing
-    LibMain::lib->storePersistentStringVariable("preferences", output.toStdString(), true);
+    LibMain::lib->storePersistentStringVariable("preferences", output.toStdString(), false);
 }
 
 void GridTimer::timerCallback()

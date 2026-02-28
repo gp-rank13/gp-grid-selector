@@ -16,7 +16,7 @@ public:
     void mouseDown(const MouseEvent &e) override;
     void mouseEnter (const MouseEvent& e) override;
     void mouseExit (const MouseEvent& e) override;
-    
+
     void paint(Graphics& g) override;
     String name = "Song";
     int number = 0;
@@ -48,11 +48,11 @@ public:
   void mouseExit (const MouseEvent& e) override;
   void paint(Graphics& g) override;
 
-  int directSelectNumber = 10;
+  int directSelectNumber = 0;
 
 private:
   bool hover = false;
-    
+
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GridSelectorBankUp)
 };
 
@@ -65,11 +65,11 @@ public:
   void mouseExit (const MouseEvent& e) override;
   void paint(Graphics& g) override;
 
-  int directSelectNumber = 6;
+  int directSelectNumber = 0;
 
 private:
     bool hover = false;
-    
+
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GridSelectorBankDown)
 };
 
@@ -77,7 +77,7 @@ class GridSelectorMain : public Component
 {
 public:
   GridSelectorMain () {};
- 
+
   void paint (Graphics& g) override;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GridSelectorMain)
@@ -160,7 +160,7 @@ public:
 
 };
 
-class GridWindow  : public Component, 
+class GridWindow  : public Component,
                     public juce::Button::Listener
 {
 public:
@@ -197,7 +197,7 @@ public:
   void triggerGridItem (int number);
   void readPreferences();
   void savePreferences();
-  
+
 
   std::unique_ptr<GridSelectorMain> grid;
   std::unique_ptr<GridSelectorTitle> gridTitle;
@@ -218,9 +218,10 @@ public:
   int gridBankRowCount = GRID_BANK_ROWS_DEFAULT;
   int gridItemWidthCountAlt = 5;
   int gridItemHeightCountAlt = 2;
-  bool gridDifferentGridSizeForScenes = true;
-  bool prefAutoAssignBankButtonsFromDirectSelect = true;
+  bool gridDifferentGridSizeForScenes = false;
+  bool prefAutoAssignBankButtonsFromDirectSelect = false;
   bool prefUseBankButtonsAsDirectSelect = false;
+  bool prefDrillDownOnActiveGridItem = false;
   bool gridDisplaySceneNameInTitle = false;
   bool gridDisplayZeroBasedNumbers = false;
   bool gridDisplaySongKeys = false;
